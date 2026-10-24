@@ -358,6 +358,28 @@ export class GridService implements GridServiceInterface {
       grid.rev = nextRev;
       return { ...grid };
     } catch (error) {
+      // A hidden draft whose backing Firestore document was removed (e.g.
+      // published or discarded in another tab, or interrupted across a reload)
+      // reports actualRev 0 on save. Re-create it at rev 1 so continued edits
+      // and subsequent publishes have a valid stored draft again.
+      if (
+        grid.draftOf &&
+        isGridRevisionConflictError(error) &&
+        error.actualRev === 0
+      ) {
+        try {
+          const recreatedPayload = this.buildGridPayload(grid, "save", 1);
+          await this.gridDao.save(grid.id, recreatedPayload, 0);
+          grid.rev = 1;
+          return { ...grid };
+        } catch (recreateError) {
+          console.error(
+            `Error recreating draft grid with ID ${grid.id}:`,
+            recreateError,
+          );
+          throw recreateError;
+        }
+      }
       console.error(`Error saving grid with ID ${grid.id}:`, error);
       throw error;
     }
@@ -790,7 +812,17 @@ export class GridService implements GridServiceInterface {
     // Write-back first; only reclaim the draft once the original is safely
     // updated. A rev conflict here throws before the draft is touched.
     await this.gridDao.update(originalId, payload, expectedRev);
-    await this.gridDao.delete(draftId);
+
+    // The original is already updated and live; failing to reclaim the draft
+    // (for instance when the stored draft was already removed by another tab or
+    // never persisted, which Firestore's owner check rejects as permission
+    // denied on a non-existent doc) must not report the publish as failed or
+    // block reloading a fresh draft session.
+    try {
+      await this.gridDao.delete(draftId);
+    } catch (error) {
+      console.error(`Failed to delete draft ${draftId} after publish:`, error);
+    }
   }
 
   // Promote a draft into its own listed public grid (today's "duplicate"
@@ -798,8 +830,12 @@ export class GridService implements GridServiceInterface {
   // removed. Promoting in place would leave a listed grid squatting on the
   // original's deterministic draft id, so the original could never open a
   // draft again.
-  async publishAsCopy(draftId: string, name?: string): Promise<Grid> {
-    const draft = await this.fetchGrid(draftId);
+  async publishAsCopy(
+    draftId: string,
+    name?: string,
+    content?: Grid,
+  ): Promise<Grid> {
+    const draft = content ?? (await this.fetchGrid(draftId));
     const copy: Grid = {
       ...draft,
       id: this.gridDao.generateId(),

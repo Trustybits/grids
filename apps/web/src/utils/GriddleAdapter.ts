@@ -48,6 +48,8 @@ export const MAX_TILE_UNITS = 10;
  * Griddle's 12px movement threshold and arms a tile drag — Griddle then
  * captures the pointer and the message history can never be scrolled. Ignoring
  * the container leaves the vertical pan to the browser's native scroll.
+ * `.x-feed-scroll` (the X profile feed, and an X post thread while it
+ * overflows) is ignored for the same reason.
  *
  * `.ProseMirror[contenteditable="true"]` matches rich text only while its tile
  * is in edit mode (the editor is `contenteditable="false"` otherwise), so text
@@ -67,6 +69,7 @@ export const DEFAULT_DRAG_IGNORE_FROM =
     ".tile-title",
     ".tile-details",
     ".chat-messages",
+    ".x-feed-scroll",
     ".progress-container",
     ".track-progress",
     ".yt-video-card",

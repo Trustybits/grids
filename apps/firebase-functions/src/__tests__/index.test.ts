@@ -40,6 +40,9 @@ const { exportsByModule, adminImportSpy } = vi.hoisted(() => {
     getLinkPreview: { functionName: "getLinkPreview" },
     getMusicTrackMetadata: { functionName: "getMusicTrackMetadata" },
     getYouTubeMetadata: { functionName: "getYouTubeMetadata" },
+    getXPostMetadata: { functionName: "getXPostMetadata" },
+    getXPostReplies: { functionName: "getXPostReplies" },
+    getXProfileFeed: { functionName: "getXProfileFeed" },
     authorizeStorageUpload: { functionName: "authorizeStorageUpload" },
     deleteStorageUpload: { functionName: "deleteStorageUpload" },
     ensureDocumentItemThumbnail: { functionName: "ensureDocumentItemThumbnail" },
@@ -153,6 +156,15 @@ vi.mock("../scraping/onCall_getMusicTrackMetadata.js", () => ({
 }));
 vi.mock("../scraping/onCall_getYouTubeMetadata.js", () => ({
   getYouTubeMetadata: exportsByModule.getYouTubeMetadata,
+}));
+vi.mock("../scraping/onCall_getXPostMetadata.js", () => ({
+  getXPostMetadata: exportsByModule.getXPostMetadata,
+}));
+vi.mock("../scraping/onCall_getXPostReplies.js", () => ({
+  getXPostReplies: exportsByModule.getXPostReplies,
+}));
+vi.mock("../scraping/onCall_getXProfileFeed.js", () => ({
+  getXProfileFeed: exportsByModule.getXProfileFeed,
 }));
 vi.mock("../storage/onCall_ensureDocumentItemThumbnail.js", () => ({
   ensureDocumentItemThumbnail: exportsByModule.ensureDocumentItemThumbnail,

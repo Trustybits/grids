@@ -95,7 +95,7 @@ const ALL_TILE_TYPES: readonly TileTypeDescriptor[] = [
     id: "embed",
     label: "Embed",
     icon: markRaw(EmbedIcon),
-    keywords: ["embed", "youtube", "spotify", "music", "iframe", "video"],
+    keywords: ["embed", "youtube", "spotify", "music", "iframe", "video", "x", "twitter", "tweet", "post"],
     kind: "command",
   },
   {

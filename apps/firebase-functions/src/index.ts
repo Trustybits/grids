@@ -49,6 +49,9 @@ export { onUserLogin } from "./notifications/onTrigger_userLogin.js";
 export { getLinkPreview } from "./scraping/onCall_getLinkPreview.js";
 export { getMusicTrackMetadata } from "./scraping/onCall_getMusicTrackMetadata.js";
 export { getYouTubeMetadata } from "./scraping/onCall_getYouTubeMetadata.js";
+export { getXPostMetadata } from "./scraping/onCall_getXPostMetadata.js";
+export { getXPostReplies } from "./scraping/onCall_getXPostReplies.js";
+export { getXProfileFeed } from "./scraping/onCall_getXProfileFeed.js";
 
 // storage
 

@@ -14,6 +14,8 @@ import { youtubeDefinition } from "./youtube";
 import { roadmapFeedDefinition } from "./roadmapFeed";
 import { musicDefinition } from "./music";
 import { documentDefinition } from "./document";
+import { xPostDefinition } from "./xPost";
+import { xProfileDefinition } from "./xProfile";
 
 export function registerAllTiles(): void {
   registerTile(textDefinition);
@@ -31,6 +33,8 @@ export function registerAllTiles(): void {
   registerTile(roadmapFeedDefinition);
   registerTile(musicDefinition);
   registerTile(documentDefinition);
+  registerTile(xPostDefinition);
+  registerTile(xProfileDefinition);
 }
 
 // Self-register on module evaluation so tiles are available to any
@@ -53,4 +57,6 @@ export {
   roadmapFeedDefinition,
   musicDefinition,
   documentDefinition,
+  xPostDefinition,
+  xProfileDefinition,
 };

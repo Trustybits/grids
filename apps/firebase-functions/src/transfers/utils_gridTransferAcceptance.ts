@@ -235,6 +235,8 @@ function contentTypeToSuggestionAction(
     case ContentType.YOUTUBE:
     case ContentType.ROADMAP_FEED:
     case ContentType.MUSIC:
+    case ContentType.X_POST:
+    case ContentType.X_PROFILE:
       return "embed";
     case ContentType.PROFILE:
       return "profile";

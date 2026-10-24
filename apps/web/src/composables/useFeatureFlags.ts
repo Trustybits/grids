@@ -58,6 +58,11 @@ export const FEATURE_FLAGS = {
   // Off = today's live-autosave behavior with zero user-facing change.
   EDITOR_DRAFT_PUBLISH: 'editor-draft-publish',
 
+  // ── Social embeds ───────────────────────────────────────────────────────
+  // Replies under X post tiles and the X profile feed tile. Off = X post
+  // tiles show only the post, and profile URLs stay generic embeds.
+  SOCIAL_X_FEEDS: 'social-x-feeds',
+
   // ── Account ─────────────────────────────────────────────────────────────
   // Verified email change from the account menu, plus the lost-inbox
   // recovery path (request a code / redeem a staff-issued code).

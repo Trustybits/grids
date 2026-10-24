@@ -2,6 +2,10 @@
 // to canned responses; getLinkPreview derives metadata from a parsed URL and
 // degrades gracefully on invalid input.
 import { describe, it, expect, beforeEach } from "vitest";
+import type {
+  XPostRepliesResponse,
+  XProfileFeedResponse,
+} from "@grids/contracts/types";
 import { StubbedCloudFunctionsDao } from "../StubbedCloudFunctionsDao";
 import { memoryDatabase } from "../StubbedMemoryDatabase";
 import { resetMemoryDatabase } from "./memoryTestUtils";
@@ -65,6 +69,37 @@ describe("StubbedCloudFunctionsDao.callFunction", () => {
   it("returns an empty object for metadata functions", async () => {
     expect(await dao.callFunction("getYouTubeMetadata", {})).toEqual({});
     expect(await dao.callFunction("getMusicTrackMetadata", {})).toEqual({});
+  });
+
+  it("returns a fixture X post for the requested post id", async () => {
+    const result = await dao.callFunction<
+      { postId: string },
+      { post: { postId: string; postUrl: string; textSegments: unknown[] } }
+    >("getXPostMetadata", { postId: "123" });
+    expect(result.post.postId).toBe("123");
+    expect(result.post.postUrl).toBe("https://x.com/grids/status/123");
+    expect(result.post.textSegments.length).toBeGreaterThan(0);
+  });
+
+  it("stubs X replies as an empty list", async () => {
+    const result = await dao.callFunction<unknown, XPostRepliesResponse>(
+      "getXPostReplies",
+      { postId: "123", screenName: "grids" },
+    );
+    expect(result.replies).toEqual([]);
+  });
+
+  it("stubs an X profile feed for the requested handle", async () => {
+    const result = await dao.callFunction<unknown, XProfileFeedResponse>(
+      "getXProfileFeed",
+      { screenName: "ann" },
+    );
+    if (!("profile" in result)) throw new Error("expected a profile");
+    expect(result.profile.profileUrl).toBe("https://x.com/ann");
+    expect(result.posts.map((p) => p.postUrl)).toEqual([
+      "https://x.com/ann/status/1",
+      "https://x.com/ann/status/2",
+    ]);
   });
 
   it("returns an empty object for unknown functions", async () => {

@@ -4,7 +4,13 @@ import { ContentType, type LinkContent, type TileContent } from "@grids/contract
 import {
   createTileContent,
   createTileContentFromEmbedUrl,
+  type EmbedDetectionOptions,
 } from "@/utils/TileUtils";
+import { FEATURE_FLAGS, useFeatureFlags } from "@/composables/useFeatureFlags";
+
+const embedDetection: EmbedDetectionOptions = {
+  xProfiles: () => useFeatureFlags().isEnabled(FEATURE_FLAGS.SOCIAL_X_FEEDS),
+};
 
 interface LinkPreviewResponse {
   url?: string;
@@ -22,6 +28,8 @@ type GridController = ReturnType<typeof useGridController>;
 const isRichAutoDetectedContent = (content: TileContent): boolean => {
   return (
     content.type === ContentType.YOUTUBE ||
+    content.type === ContentType.X_POST ||
+    content.type === ContentType.X_PROFILE ||
     content.type === ContentType.IMAGE ||
     content.type === ContentType.VIDEO
   );
@@ -58,7 +66,7 @@ export const useTileInput = () => {
     const isNonWebLink = /^(mailto|tel):/i.test(trimmed);
     const detectedContent = isNonWebLink
       ? createTileContent(ContentType.LINK, { link: trimmed })
-      : createTileContentFromEmbedUrl(trimmed);
+      : createTileContentFromEmbedUrl(trimmed, embedDetection);
 
     if (isRichAutoDetectedContent(detectedContent)) {
       return applyContentToTarget(detectedContent, target);
@@ -99,7 +107,7 @@ export const useTileInput = () => {
     const trimmed = (input || "").trim();
     if (!trimmed) return null;
 
-    const content = createTileContentFromEmbedUrl(trimmed);
+    const content = createTileContentFromEmbedUrl(trimmed, embedDetection);
     return applyContentToTarget(content, target);
   };
 

@@ -26,6 +26,8 @@ import {
   getContentComponent,
   getOptionComponent,
   isHiddenSuggestion,
+  parseXPostUrl,
+  parseXProfileUrl,
 } from "@/utils/TileUtils";
 import { ContentType } from "@grids/contracts/types";
 import type {
@@ -38,6 +40,8 @@ import type {
   ProfileBioContent,
   CampfireContent,
   EmbedContent,
+  XPostContent,
+  XProfileContent,
 } from "@grids/contracts/types";
 
 // TileUtils imports useThemeStore at module level but never calls it in the
@@ -503,6 +507,78 @@ describe("createTileContentFromEmbedUrl", () => {
     });
   });
 
+  describe("X post URLs", () => {
+    it("routes an x.com status URL to X_POST", () => {
+      const content = createTileContentFromEmbedUrl(
+        "https://x.com/ann_nnng/status/2110698132225106303?s=20",
+      ) as XPostContent;
+      expect(content.type).toBe(ContentType.X_POST);
+      expect(content.postId).toBe("2110698132225106303");
+      expect(content.postUrl).toBe(
+        "https://x.com/ann_nnng/status/2110698132225106303",
+      );
+    });
+
+    it("routes a protocol-less twitter.com URL to X_POST", () => {
+      const content = createTileContentFromEmbedUrl(
+        "twitter.com/ann_nnng/status/2110698132225106303",
+      ) as XPostContent;
+      expect(content.type).toBe(ContentType.X_POST);
+      expect(content.postId).toBe("2110698132225106303");
+    });
+
+    it("extracts the post from pasted blockquote embed code", () => {
+      const html = `<blockquote class="twitter-tweet"><p lang="en" dir="ltr">Kitchen tour <a href="https://t.co/abc123">pic.twitter.com/abc123</a></p>&mdash; Ann Nguyen (@ann_nnng) <a href="https://twitter.com/ann_nnng/status/2110698132225106303?ref_src=twsrc%5Etfw">July 15, 2026</a></blockquote> <script async src="https://platform.x.com/widgets.js" charset="utf-8"></script>`;
+      const content = createTileContentFromEmbedUrl(html) as XPostContent;
+      expect(content.type).toBe(ContentType.X_POST);
+      expect(content.postId).toBe("2110698132225106303");
+      expect(content.postUrl).toBe(
+        "https://x.com/ann_nnng/status/2110698132225106303",
+      );
+    });
+
+    it("routes X's embed iframe URL to X_POST", () => {
+      const content = createTileContentFromEmbedUrl(
+        '<iframe src="https://platform.twitter.com/embed/Tweet.html?id=2110698132225106303"></iframe>',
+      ) as XPostContent;
+      expect(content.type).toBe(ContentType.X_POST);
+      expect(content.postId).toBe("2110698132225106303");
+    });
+
+  });
+
+  describe("X profile URLs", () => {
+    const xProfilesOn = { xProfiles: () => true };
+
+    it("routes an x.com profile URL to X_PROFILE when X profiles are on", () => {
+      const content = createTileContentFromEmbedUrl(
+        "https://twitter.com/ann_nnng/media",
+        xProfilesOn,
+      ) as XProfileContent;
+      expect(content.type).toBe(ContentType.X_PROFILE);
+      expect(content.screenName).toBe("ann_nnng");
+      expect(content.profileUrl).toBe("https://x.com/ann_nnng");
+    });
+
+    it("extracts the profile from pasted timeline embed code", () => {
+      const html = `<a class="twitter-timeline" href="https://twitter.com/ann_nnng?ref_src=twsrc%5Etfw">Tweets by ann_nnng</a> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>`;
+      const content = createTileContentFromEmbedUrl(html, xProfilesOn) as XProfileContent;
+      expect(content.type).toBe(ContentType.X_PROFILE);
+      expect(content.screenName).toBe("ann_nnng");
+    });
+
+    it("leaves X profile URLs as generic embeds when X profiles are off", () => {
+      expect(createTileContentFromEmbedUrl("https://x.com/ann_nnng").type).toBe(
+        ContentType.EMBED,
+      );
+      expect(
+        createTileContentFromEmbedUrl("https://x.com/ann_nnng", {
+          xProfiles: () => false,
+        }).type,
+      ).toBe(ContentType.EMBED);
+    });
+  });
+
   describe("Image URLs", () => {
     it("routes direct .png URL to IMAGE type", () => {
       const content = createTileContentFromEmbedUrl(
@@ -576,6 +652,81 @@ describe("createTileContentFromEmbedUrl", () => {
         "https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M",
       );
     });
+  });
+});
+
+// ── parseXPostUrl ──────────────────────────────────────────────────────────
+
+describe("parseXPostUrl", () => {
+  it.each([
+    [
+      "https://x.com/ann_nnng/status/2110698132225106303",
+      "https://x.com/ann_nnng/status/2110698132225106303",
+    ],
+    [
+      "https://www.twitter.com/ann_nnng/status/2110698132225106303/photo/1",
+      "https://x.com/ann_nnng/status/2110698132225106303",
+    ],
+    [
+      "https://mobile.twitter.com/ann_nnng/statuses/2110698132225106303",
+      "https://x.com/ann_nnng/status/2110698132225106303",
+    ],
+    [
+      "https://x.com/i/web/status/2110698132225106303",
+      "https://x.com/i/status/2110698132225106303",
+    ],
+    [
+      "https://x.com/i/status/2110698132225106303",
+      "https://x.com/i/status/2110698132225106303",
+    ],
+    [
+      "https://platform.twitter.com/embed/Tweet.html?id=2110698132225106303",
+      "https://x.com/i/status/2110698132225106303",
+    ],
+  ])("parses %s", (url, postUrl) => {
+    expect(parseXPostUrl(url)).toEqual({
+      postId: "2110698132225106303",
+      postUrl,
+    });
+  });
+
+  it.each([
+    "https://x.com/ann_nnng",
+    "https://x.com/home",
+    "https://example.com/ann_nnng/status/2110698132225106303",
+    "https://platform.twitter.com/embed/Tweet.html?id=abc",
+    "not a url",
+  ])("rejects %s", (url) => {
+    expect(parseXPostUrl(url)).toBeNull();
+  });
+});
+
+// ── parseXProfileUrl ───────────────────────────────────────────────────────
+
+describe("parseXProfileUrl", () => {
+  it.each([
+    "https://x.com/ann_nnng",
+    "https://x.com/ann_nnng/",
+    "https://www.twitter.com/ann_nnng?lang=en",
+    "https://mobile.x.com/ann_nnng/with_replies",
+  ])("parses %s", (url) => {
+    expect(parseXProfileUrl(url)).toEqual({
+      screenName: "ann_nnng",
+      profileUrl: "https://x.com/ann_nnng",
+    });
+  });
+
+  it.each([
+    "https://x.com/ann_nnng/status/2110698132225106303",
+    "https://x.com/home",
+    "https://x.com/Explore",
+    "https://x.com/i/lists/123",
+    "https://x.com/much_too_long_handle",
+    "https://example.com/ann_nnng",
+    "https://x.com/",
+    "not a url",
+  ])("rejects %s", (url) => {
+    expect(parseXProfileUrl(url)).toBeNull();
   });
 });
 

@@ -119,6 +119,22 @@ describe("submitLink — auto-detected rich content", () => {
     expect(result).toBe("yt-1");
   });
 
+  it("applies a detected X post tile directly, skipping link preview", async () => {
+    mockCreateFromEmbed.mockReturnValue({ type: ContentType.X_POST } as never);
+    mockGridStore.addTile.mockReturnValue("x-1");
+
+    const { submitLink } = useTileInput();
+    const result = await submitLink("https://x.com/ann/status/123", {
+      mode: "add",
+    });
+
+    expect(mockGridStore.addTile).toHaveBeenCalledWith({
+      type: ContentType.X_POST,
+    });
+    expect(mockCallFunction).not.toHaveBeenCalled();
+    expect(result).toBe("x-1");
+  });
+
   it("replaces an existing tile with detected image content", async () => {
     mockCreateFromEmbed.mockReturnValue({ type: ContentType.IMAGE } as never);
 
@@ -241,6 +257,7 @@ describe("submitEmbed", () => {
 
     expect(mockCreateFromEmbed).toHaveBeenCalledWith(
       "https://example.com/widget",
+      expect.anything(),
     );
     expect(mockGridStore.addTile).toHaveBeenCalledWith({
       type: ContentType.EMBED,

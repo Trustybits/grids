@@ -8,6 +8,10 @@ import type {
   GridTransfer,
   GridTransferRecipientRef,
   PreviewGridTransferAcceptanceResponse,
+  XPostMetadataResponse,
+  XPostRepliesResponse,
+  XPostSnapshot,
+  XProfileFeedResponse,
 } from "@grids/contracts/types";
 import {
   STUBBED_USER_ID,
@@ -62,6 +66,12 @@ export class StubbedCloudFunctionsDao implements CloudFunctionsDao {
       case "getYouTubeMetadata":
       case "getMusicTrackMetadata":
         return {} as TResponse;
+      case "getXPostMetadata":
+        return this.stubXPost(data) as TResponse;
+      case "getXPostReplies":
+        return { replies: [], fetchedAt: Date.now() } satisfies XPostRepliesResponse as TResponse;
+      case "getXProfileFeed":
+        return this.stubXProfileFeed(data) as TResponse;
       default:
         return {} as TResponse;
     }
@@ -225,6 +235,66 @@ export class StubbedCloudFunctionsDao implements CloudFunctionsDao {
     } catch {
       return { url: rawUrl };
     }
+  }
+
+  private stubXPost(data: unknown): XPostMetadataResponse {
+    const postId =
+      data && typeof data === "object" && "postId" in data
+        ? String((data as { postId: unknown }).postId)
+        : "";
+    return { post: this.stubXSnapshot(postId, "grids"), fetchedAt: Date.now() };
+  }
+
+  private stubXProfileFeed(data: unknown): XProfileFeedResponse {
+    const raw =
+      data && typeof data === "object" && "screenName" in data
+        ? String((data as { screenName: unknown }).screenName)
+        : "";
+    const screenName = raw || "grids";
+    return {
+      profile: {
+        screenName,
+        name: screenName,
+        profileUrl: `https://x.com/${screenName}`,
+        avatarUrl: "",
+        isVerified: false,
+        bioSegments: [
+          { kind: "text", text: "X profiles are stubbed in local memory mode." },
+        ],
+        followersCount: 0,
+        followingCount: 0,
+      },
+      posts: [this.stubXSnapshot("1", screenName), this.stubXSnapshot("2", screenName)],
+      fetchedAt: Date.now(),
+    };
+  }
+
+  private stubXSnapshot(postId: string, screenName: string): XPostSnapshot {
+    const text = "X posts are stubbed in local memory mode. #grids";
+    return {
+      postId,
+      postUrl: `https://x.com/${screenName}/status/${postId}`,
+      author: {
+        name: screenName === "grids" ? "Grids" : screenName,
+        screenName,
+        avatarUrl: "",
+        isVerified: false,
+      },
+      text,
+      textSegments: [
+        { kind: "text", text: "X posts are stubbed in local memory mode. " },
+        {
+          kind: "hashtag",
+          text: "#grids",
+          href: "https://x.com/hashtag/grids",
+        },
+      ],
+      isTruncated: false,
+      createdAt: new Date(0).toISOString(),
+      likeCount: 0,
+      replyCount: 0,
+      media: [],
+    };
   }
 
   private localUrl(path: string): string {

@@ -53,6 +53,8 @@ const contentTypeToSuggestionAction = (type: ContentType): SuggestionAction => {
     case ContentType.EMBED:
     case ContentType.YOUTUBE:
     case ContentType.MUSIC:
+    case ContentType.X_POST:
+    case ContentType.X_PROFILE:
     case ContentType.MAP:
     case ContentType.ROADMAP_FEED:
       return "embed";

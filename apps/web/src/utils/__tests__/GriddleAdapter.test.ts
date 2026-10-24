@@ -328,6 +328,7 @@ describe("buildGridConfig", () => {
     ".tile-title",
     ".tile-details",
     ".chat-messages",
+    ".x-feed-scroll",
     ".progress-container",
     ".track-progress",
     ".yt-video-card",

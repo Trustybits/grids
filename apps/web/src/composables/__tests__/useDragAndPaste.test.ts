@@ -335,11 +335,24 @@ describe("handlePaste — text", () => {
     const html = '<iframe src="https://embed.example/x"></iframe>';
     document.body.dispatchEvent(pasteEvent({ text: html }));
     await tick();
-    expect(mockCreateFromEmbed).toHaveBeenCalledWith(html);
+    expect(mockCreateFromEmbed).toHaveBeenCalledWith(html, expect.anything());
     expect(mockGridStore.addTile).toHaveBeenCalledWith({
       type: ContentType.EMBED,
       src: html,
     });
+  });
+
+  it("routes pasted X blockquote embed code through the embed URL handler", async () => {
+    setup();
+    const html =
+      '<blockquote class="twitter-tweet"><a href="https://twitter.com/ann/status/123">July 15</a></blockquote>';
+    document.body.dispatchEvent(pasteEvent({ text: html }));
+    await tick();
+    expect(mockCreateFromEmbed).toHaveBeenCalledWith(html, expect.anything());
+    expect(mockCreateTileContent).not.toHaveBeenCalledWith(
+      ContentType.SMART_TEXT,
+      expect.anything(),
+    );
   });
 
   it("creates a SmartText tile from plain text and flags it for focus", async () => {
@@ -467,6 +480,19 @@ describe("handleUrlPaste — special content vs link", () => {
     await tick();
     expect(mockGridStore.addTile).toHaveBeenCalledWith({
       type: ContentType.YOUTUBE,
+    });
+    expect(mockCallFunction).not.toHaveBeenCalled();
+  });
+
+  it("adds a detected X post tile directly without fetching a preview", async () => {
+    mockCreateFromEmbed.mockReturnValue({ type: ContentType.X_POST } as never);
+    setup();
+    document.body.dispatchEvent(
+      pasteEvent({ text: "https://x.com/ann/status/123" }),
+    );
+    await tick();
+    expect(mockGridStore.addTile).toHaveBeenCalledWith({
+      type: ContentType.X_POST,
     });
     expect(mockCallFunction).not.toHaveBeenCalled();
   });

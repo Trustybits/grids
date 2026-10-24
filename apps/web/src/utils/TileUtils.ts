@@ -5,6 +5,8 @@ import {
   type YouTubeContent,
   type MusicContent,
   type MusicPlatform,
+  type XPostContent,
+  type XProfileContent,
   type AnyTileContent,
 } from "@grids/contracts/types";
 import { type Component, defineAsyncComponent, markRaw } from "vue";
@@ -214,13 +216,117 @@ function parseMusicUrl(url: string): {
   }
 }
 
+const X_HOSTNAMES = new Set([
+  "x.com",
+  "www.x.com",
+  "mobile.x.com",
+  "twitter.com",
+  "www.twitter.com",
+  "mobile.twitter.com",
+]);
+
+// Parse X (Twitter) post URLs to extract the post ID
+// Supports formats:
+// - x.com/<handle>/status/<id> (plus /photo/1, /video/1 suffixes), twitter.com, mobile.*
+// - x.com/i/web/status/<id>, x.com/i/status/<id>
+// - platform.twitter.com/embed/Tweet.html?id=<id> (X's embed iframe)
+export function parseXPostUrl(url: string): { postId: string; postUrl: string } | null {
+  try {
+    const urlObj = new URL(url);
+    const hostname = urlObj.hostname.toLowerCase();
+
+    if (hostname === "platform.twitter.com" || hostname === "platform.x.com") {
+      const id = urlObj.searchParams.get("id");
+      return id && /^\d+$/.test(id)
+        ? { postId: id, postUrl: `https://x.com/i/status/${id}` }
+        : null;
+    }
+
+    if (!X_HOSTNAMES.has(hostname)) return null;
+
+    const match = urlObj.pathname.match(
+      /^\/(?:i\/web|i|([A-Za-z0-9_]{1,15}))\/status(?:es)?\/(\d+)/,
+    );
+    if (!match) return null;
+
+    const [, handle, postId] = match;
+    return {
+      postId,
+      postUrl: `https://x.com/${handle ?? "i"}/status/${postId}`,
+    };
+  } catch {
+    return null;
+  }
+}
+
+// First path segments on x.com that are app pages, not handles.
+const X_RESERVED_PATHS = new Set([
+  "home",
+  "explore",
+  "search",
+  "i",
+  "settings",
+  "messages",
+  "notifications",
+  "compose",
+  "hashtag",
+  "intent",
+  "share",
+  "login",
+  "logout",
+  "signup",
+  "tos",
+  "privacy",
+  "about",
+  "jobs",
+  "account",
+]);
+
+// Parse X profile URLs: x.com/<handle>, optionally followed by a profile tab
+// (/with_replies, /media, ...). Post URLs are not profiles.
+export function parseXProfileUrl(
+  url: string,
+): { screenName: string; profileUrl: string } | null {
+  try {
+    const urlObj = new URL(url);
+    if (!X_HOSTNAMES.has(urlObj.hostname.toLowerCase())) return null;
+
+    const match = urlObj.pathname.match(
+      /^\/([A-Za-z0-9_]{1,15})(?:\/(?:with_replies|media|highlights|articles|likes))?\/?$/,
+    );
+    if (!match || X_RESERVED_PATHS.has(match[1].toLowerCase())) return null;
+
+    return { screenName: match[1], profileUrl: `https://x.com/${match[1]}` };
+  } catch {
+    return null;
+  }
+}
+
 // Extract a URL from pasted <iframe> HTML markup
 function extractUrlFromIframe(html: string): string | null {
   const srcMatch = html.match(/<iframe[^>]+src=["']([^"']+)["']/i);
   return srcMatch ? srcMatch[1] : null;
 }
 
-export function createTileContentFromEmbedUrl(src: string): TileContent {
+// Extract the post URL from X's pasted <blockquote class="twitter-tweet"> embed code.
+// The post's own link is the last /status/ href; earlier ones are links inside the text.
+function extractUrlFromXBlockquote(html: string): string | null {
+  const hrefs = [...html.matchAll(/href=["']([^"']+)["']/gi)].map((m) => m[1]);
+  return [...hrefs].reverse().find((href) => parseXPostUrl(href) !== null) ?? null;
+}
+
+export interface EmbedDetectionOptions {
+  /**
+   * Whether X profile URLs become X profile tiles. Called only for profile
+   * URLs; when absent or false they stay generic embeds.
+   */
+  xProfiles?: () => boolean;
+}
+
+export function createTileContentFromEmbedUrl(
+  src: string,
+  options: EmbedDetectionOptions = {},
+): TileContent {
   const trimmed = (src || "").trim();
 
   // Check for pasted <iframe> HTML — extract the src URL
@@ -228,9 +334,28 @@ export function createTileContentFromEmbedUrl(src: string): TileContent {
   if (trimmed.includes("<iframe")) {
     const extracted = extractUrlFromIframe(trimmed);
     if (extracted) urlToCheck = extracted;
+  } else if (/<blockquote/i.test(trimmed)) {
+    const extracted = extractUrlFromXBlockquote(trimmed);
+    if (extracted) urlToCheck = extracted;
+  } else if (/^<a[^>]*twitter-timeline/i.test(trimmed)) {
+    const href = trimmed.match(/href=["']([^"']+)["']/i);
+    if (href) urlToCheck = href[1];
   }
 
   const formatted = ensureUrlHasProtocol(urlToCheck);
+
+  const xPost = parseXPostUrl(formatted);
+  if (xPost) {
+    return createTileContent(ContentType.X_POST, xPost as Partial<XPostContent>);
+  }
+
+  const xProfile = parseXProfileUrl(formatted);
+  if (xProfile && options.xProfiles?.()) {
+    return createTileContent(
+      ContentType.X_PROFILE,
+      xProfile as Partial<XProfileContent>,
+    );
+  }
 
   // Check for YouTube URLs first
   const youtubeData = parseYouTubeUrl(formatted);

@@ -33,6 +33,8 @@ import type {
   YouTubeContent,
   MusicContent,
   DocumentsContent,
+  XPostContent,
+  XProfileContent,
 } from "@grids/contracts/types";
 
 import { textDefinition } from "@/registries/tiles/text";
@@ -47,6 +49,8 @@ import { youtubeDefinition } from "@/registries/tiles/youtube";
 import { roadmapFeedDefinition } from "@/registries/tiles/roadmapFeed";
 import { musicDefinition } from "@/registries/tiles/music";
 import { documentDefinition } from "@/registries/tiles/document";
+import { xPostDefinition } from "@/registries/tiles/xPost";
+import { xProfileDefinition } from "@/registries/tiles/xProfile";
 
 // The global setup file imports `@/registries/tiles` (and therefore image.ts /
 // video.ts / embed.ts) *before* this file's vi.mock registers, so those modules
@@ -901,6 +905,102 @@ describe("musicDefinition", () => {
   });
 });
 
+// ── x post ────────────────────────────────────────────────────────────────────
+
+describe("xPostDefinition", () => {
+  it("defaults to an empty post reference", () => {
+    expect(xPostDefinition.defaultContent()).toMatchObject({
+      type: ContentType.X_POST,
+      postId: "",
+      postUrl: "",
+    });
+    expect(xPostDefinition.defaultSize).toEqual({ w: 4, h: 4 });
+  });
+
+  it("passes through the post id and url", () => {
+    const c = xPostDefinition.defaultContent({
+      postId: "123",
+      postUrl: "https://x.com/a/status/123",
+    });
+    expect(c.postId).toBe("123");
+    expect(c.postUrl).toBe("https://x.com/a/status/123");
+  });
+
+  it.each([
+    [{ postId: "123", postUrl: "https://x.com/a/status/123" }, true],
+    [{ postId: "", postUrl: "https://x.com/a/status/123" }, false],
+    [{ postId: "abc", postUrl: "https://x.com/a/status/abc" }, false],
+    [{ postId: "123", postUrl: "" }, false],
+  ])("validate(%o) => %s", (content, expected) => {
+    expect(xPostDefinition.validate(content as XPostContent)).toBe(expected);
+  });
+
+  it("copyContent and externalUrl prefer the fetched post url", () => {
+    const content = {
+      postId: "123",
+      postUrl: "https://x.com/i/status/123",
+      post: { postUrl: "https://x.com/a/status/123" },
+    } as XPostContent;
+    expect(xPostDefinition.actions?.copyContent?.(content)).toBe(
+      "https://x.com/a/status/123",
+    );
+    expect(
+      xPostDefinition.actions?.externalUrl?.({
+        postUrl: "https://x.com/i/status/123",
+      } as XPostContent),
+    ).toBe("https://x.com/i/status/123");
+  });
+});
+
+// ── x profile ─────────────────────────────────────────────────────────────────
+
+describe("xProfileDefinition", () => {
+  it("is gated behind the social-x-feeds feature flag", () => {
+    expect(xProfileDefinition.featureFlag).toBe("social-x-feeds");
+  });
+
+  it("defaults to an empty profile reference", () => {
+    expect(xProfileDefinition.defaultContent()).toMatchObject({
+      type: ContentType.X_PROFILE,
+      screenName: "",
+      profileUrl: "",
+    });
+    expect(xProfileDefinition.defaultSize).toEqual({ w: 4, h: 4 });
+  });
+
+  it("passes through the handle and profile url", () => {
+    const c = xProfileDefinition.defaultContent({
+      screenName: "ann_nnng",
+      profileUrl: "https://x.com/ann_nnng",
+    });
+    expect(c.screenName).toBe("ann_nnng");
+    expect(c.profileUrl).toBe("https://x.com/ann_nnng");
+  });
+
+  it.each([
+    [{ screenName: "ann_nnng", profileUrl: "https://x.com/ann_nnng" }, true],
+    [{ screenName: "not a handle", profileUrl: "https://x.com/ann_nnng" }, false],
+    [{ screenName: "ann_nnng", profileUrl: "" }, false],
+  ])("validate(%o) => %s", (content, expected) => {
+    expect(xProfileDefinition.validate(content as XProfileContent)).toBe(expected);
+  });
+
+  it("copyContent and externalUrl prefer the fetched profile url", () => {
+    const content = {
+      profileUrl: "https://x.com/Ann_nnng",
+      profile: { profileUrl: "https://x.com/ann_nnng" },
+    } as XProfileContent;
+    expect(xProfileDefinition.actions?.copyContent?.(content)).toBe(
+      "https://x.com/ann_nnng",
+    );
+    expect(
+      xProfileDefinition.actions?.externalUrl?.({
+        profileUrl: "https://x.com/Ann_nnng",
+      } as XProfileContent),
+    ).toBe("https://x.com/Ann_nnng");
+  });
+});
+
 // ── document ──────────────────────────────────────────────────────────────────
 
 describe("documentDefinition", () => {
@@ -1085,6 +1185,19 @@ describe("tile toolbar wiring", () => {
       "resize-2x2",
       "resize-4x2",
       "resize-4x4",
+    ]);
+  });
+
+  it.each([
+    ["x post", xPostDefinition],
+    ["x profile", xProfileDefinition],
+  ])("%s exposes post-sized resize presets and the border toggle", (_label, definition) => {
+    expect(ids(definition)).toEqual([
+      "resize-2x2",
+      "resize-2x4",
+      "resize-4x2",
+      "resize-4x4",
+      "border-toggle",
     ]);
   });
 

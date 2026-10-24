@@ -14,6 +14,8 @@ export enum ContentType {
   ROADMAP_FEED = "roadmap_feed",
   MUSIC = "music",
   DOCUMENT = "document",
+  X_POST = "x_post",
+  X_PROFILE = "x_profile",
 }
 
 /**
@@ -281,6 +283,105 @@ export interface MusicContent extends TileContent {
   textSubdued: string;
 }
 
+// ── X (Twitter) posts ───────────────────────────────────────────────
+
+export interface XPostAuthor {
+  name: string;
+  screenName: string;
+  avatarUrl: string;
+  isVerified: boolean;
+}
+
+// Post text pre-split on the server so renderers never inject HTML.
+export interface XPostTextSegment {
+  kind: "text" | "link" | "mention" | "hashtag";
+  text: string;
+  href?: string;
+}
+
+export interface XPostMedia {
+  type: "photo" | "video" | "gif";
+  // Photo URL, or the poster frame for video/gif. X serves the video files
+  // themselves only to x.com, so playback goes through X's embed iframe.
+  url: string;
+  width?: number;
+  height?: number;
+}
+
+// Point-in-time copy of a post, captured when the tile is created.
+export interface XPostSnapshot {
+  postId: string;
+  postUrl: string;
+  author: XPostAuthor;
+  text: string;
+  textSegments: XPostTextSegment[];
+  // Long posts arrive cut at ~280 characters; the full text lives on x.com.
+  isTruncated: boolean;
+  createdAt: string;
+  likeCount: number;
+  replyCount: number;
+  media: XPostMedia[];
+  // Set on replies and feed posts; the main post keeps its quote in
+  // XPostContent.quotedPost. Never nested more than one level.
+  quoted?: XPostSnapshot;
+}
+
+export interface XPostContent extends TileContent {
+  type: ContentType.X_POST;
+  postId: string;
+  postUrl: string;
+  post?: XPostSnapshot;
+  quotedPost?: XPostSnapshot;
+  // Deleted, withheld, or protected posts.
+  unavailable?: boolean;
+  fetchedAt?: number;
+  replies?: XPostSnapshot[];
+  repliesFetchedAt?: number;
+}
+
+export type XPostMetadataResponse =
+  | { post: XPostSnapshot; quotedPost?: XPostSnapshot; fetchedAt: number }
+  | { unavailable: true; fetchedAt: number };
+
+export interface XPostRepliesResponse {
+  replies: XPostSnapshot[];
+  fetchedAt: number;
+}
+
+export interface XProfileSnapshot {
+  screenName: string;
+  name: string;
+  profileUrl: string;
+  avatarUrl: string;
+  isVerified: boolean;
+  bannerUrl?: string;
+  bioSegments?: XPostTextSegment[];
+  followersCount?: number;
+  followingCount?: number;
+}
+
+export interface XProfileContent extends TileContent {
+  type: ContentType.X_PROFILE;
+  screenName: string;
+  profileUrl: string;
+  profile?: XProfileSnapshot;
+  // Pinned post (if any) first, then the latest posts X shows logged-out visitors.
+  posts?: XPostSnapshot[];
+  pinnedPostId?: string;
+  // Suspended, deleted, or protected accounts.
+  unavailable?: boolean;
+  fetchedAt?: number;
+}
+
+export type XProfileFeedResponse =
+  | {
+      profile: XProfileSnapshot;
+      posts: XPostSnapshot[];
+      pinnedPostId?: string;
+      fetchedAt: number;
+    }
+  | { unavailable: true; fetchedAt: number };
+
 export interface DocumentItem {
   id: string;
   fileName: string;
@@ -377,4 +478,6 @@ export type AnyTileContent =
   | YouTubeContent
   | RoadmapFeedContent
   | MusicContent
-  | DocumentsContent;
+  | DocumentsContent
+  | XPostContent
+  | XProfileContent;

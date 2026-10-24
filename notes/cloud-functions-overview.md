@@ -95,6 +95,19 @@ are Firebase v1 and short-circuit early when maintenance mode is enabled (`noopI
   preview (title, description, image, etc.). Validates and normalizes the URL. Requires auth.
 - MI **getMusicTrackMetadata** — Callable. Fetches track details and a color palette for a Spotify or Apple
   Music track by scraping embed pages / the iTunes API. Requires auth.
+- MI **getXPostMetadata** — Callable. Fetches a public X post (author, text split into link/mention/hashtag
+  segments, counts, media posters, quoted post) from X's embed syndication endpoint. Deleted or private
+  posts return `unavailable`. Requires auth.
+- **getXPostReplies** — Callable (30s). Finds up to 10 reply IDs for an X post, then rebuilds each reply
+  from the syndication endpoint. Discovery failures return an empty list. Requires auth.
+- **getXProfileFeed** — Callable (30s). Finds an X account's header details and up to 10 recent post IDs
+  (pinned first), then rebuilds each post from the syndication endpoint. Missing accounts return
+  `unavailable`. Requires auth.
+
+  Both X discovery functions read IDs from the data x.com serves to logged-out visitors, which only
+  includes a few replies and posts. `X_DISCOVERY_SOURCE` selects the source: `page` (default) or `off`.
+  A paid X API source can implement `XDiscoverySource` in `scraping/utils_xDiscovery.ts` without
+  changing stored tile data.
 - MI **getYouTubeMetadata** — Callable (YouTube API-key secret). Fetches public metadata for a YouTube
   video, playlist, channel, or short via the YouTube Data API v3. Requires auth.
 

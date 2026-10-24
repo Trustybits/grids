@@ -5,11 +5,17 @@ import { useGridController } from "@/controllers/useGridController";
 import {
   createTileContent,
   createTileContentFromEmbedUrl,
+  type EmbedDetectionOptions,
 } from "@/utils/TileUtils";
 import { ContentType } from "@grids/contracts/types";
 import { isUnifiedTextActive } from "@/composables/earlyAccessState";
+import { FEATURE_FLAGS, useFeatureFlags } from "@/composables/useFeatureFlags";
 import { classifyFileForUpload } from "@/utils/UploadFileClassification";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
+
+const embedDetection: EmbedDetectionOptions = {
+  xProfiles: () => useFeatureFlags().isEnabled(FEATURE_FLAGS.SOCIAL_X_FEEDS),
+};
 
 interface LinkPreviewResponse {
   url?: string;
@@ -92,12 +98,13 @@ export function useDragAndPaste(containerRef: Ref<HTMLElement | null>) {
         const trimmedText = text.trim();
 
         if (
-          trimmedText.startsWith("<iframe") ||
-          trimmedText.startsWith("<IFRAME")
+          /^<iframe/i.test(trimmedText) ||
+          /^<blockquote[^>]*twitter-tweet/i.test(trimmedText) ||
+          /^<a[^>]*twitter-timeline/i.test(trimmedText)
         ) {
-          // Paste is an iframe embed code — route through embed URL handler
+          // Paste is iframe or X embed code — route through embed URL handler
           event.preventDefault();
-          const embedContent = createTileContentFromEmbedUrl(trimmedText);
+          const embedContent = createTileContentFromEmbedUrl(trimmedText, embedDetection);
           controller.addTile(embedContent);
         } else if (isUrl(trimmedText)) {
           // Paste is a URL — create a link tile
@@ -274,10 +281,12 @@ export function useDragAndPaste(containerRef: Ref<HTMLElement | null>) {
 
     // Check if this URL should be a special content type (YouTube, music, image, video, etc.)
     if (!/^(mailto|tel):/i.test(formattedUrl)) {
-      const detectedContent = createTileContentFromEmbedUrl(formattedUrl);
+      const detectedContent = createTileContentFromEmbedUrl(formattedUrl, embedDetection);
       if (
         detectedContent.type === ContentType.YOUTUBE ||
         detectedContent.type === ContentType.MUSIC ||
+        detectedContent.type === ContentType.X_POST ||
+        detectedContent.type === ContentType.X_PROFILE ||
         detectedContent.type === ContentType.IMAGE ||
         detectedContent.type === ContentType.VIDEO
       ) {
@@ -323,10 +332,12 @@ export function useDragAndPaste(containerRef: Ref<HTMLElement | null>) {
 
     // Check if this URL should be a special content type (YouTube, music, image, video, etc.)
     if (!/^(mailto|tel):/i.test(formattedUrl)) {
-      const detectedContent = createTileContentFromEmbedUrl(formattedUrl);
+      const detectedContent = createTileContentFromEmbedUrl(formattedUrl, embedDetection);
       if (
         detectedContent.type === ContentType.YOUTUBE ||
         detectedContent.type === ContentType.MUSIC ||
+        detectedContent.type === ContentType.X_POST ||
+        detectedContent.type === ContentType.X_PROFILE ||
         detectedContent.type === ContentType.IMAGE ||
         detectedContent.type === ContentType.VIDEO
       ) {

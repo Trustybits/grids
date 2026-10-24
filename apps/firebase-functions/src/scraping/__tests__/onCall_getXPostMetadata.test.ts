@@ -25,8 +25,13 @@ vi.mock("../../maintenance.js", () => ({
   noopIfMaintenance: vi.fn(),
 }));
 
+vi.mock("../utils_xCache.js", () => ({
+  readThroughXCache: vi.fn(),
+}));
+
 import { getXPostMetadata as callable } from "../onCall_getXPostMetadata.js";
 import { syndicationUrl } from "../utils_xPost.js";
+import { readThroughXCache, type XCacheRequest } from "../utils_xCache.js";
 
 const getXPostMetadata = callable as unknown as (
   data: unknown,
@@ -67,6 +72,11 @@ beforeEach(() => {
   resetMaintenanceMock(noopIfMaintenance);
   vi.mocked(logger.error).mockClear();
   vi.spyOn(Date, "now").mockReturnValue(1_700_000_000_000);
+  vi.mocked(readThroughXCache).mockReset();
+  vi.mocked(readThroughXCache).mockImplementation(
+    async (request: XCacheRequest<{ fetchedAt: number }>) =>
+      request.canSeed ? request.load() : null,
+  );
 });
 
 afterEach(() => {
@@ -86,13 +96,36 @@ describe("getXPostMetadata", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("requires an authenticated caller", async () => {
+  it("reads through the shared cache, letting only signed-in callers fill it", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(jsonResponse(200, syndicationPost("1", "a", "hello"))),
+    );
+
+    await getXPostMetadata({ postId: "1" }, auth);
+
+    expect(readThroughXCache).toHaveBeenCalledWith(
+      expect.objectContaining({ key: "post_1", canSeed: true }),
+    );
+  });
+
+  it("rejects anonymous callers when the post isn't cached yet", async () => {
     await expect(getXPostMetadata({ postId: "1" }, {})).rejects.toSatisfy(
       (error: unknown) => {
         expectHttpsError(error, "unauthenticated", "You must be signed in to fetch X posts.");
         return true;
       },
     );
+    expect(readThroughXCache).toHaveBeenCalledWith(
+      expect.objectContaining({ canSeed: false }),
+    );
+  });
+
+  it("serves anonymous callers a cached post", async () => {
+    const cached = { unavailable: true, fetchedAt: 5 };
+    vi.mocked(readThroughXCache).mockResolvedValue(cached);
+
+    await expect(getXPostMetadata({ postId: "1" }, {})).resolves.toBe(cached);
   });
 
   it("requires a postId", async () => {

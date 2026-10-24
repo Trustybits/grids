@@ -51,7 +51,7 @@
 
     <div v-else class="x-post-status">
       <p v-if="isLoading">Loading post…</p>
-      <p v-else-if="content.unavailable">This post is unavailable.</p>
+      <p v-else-if="tile.unavailable">This post is unavailable.</p>
       <p v-else-if="hasError">Couldn't load this post.</p>
       <button
         v-if="hasError && canEdit"
@@ -62,8 +62,8 @@
         Retry
       </button>
       <a
-        v-if="!isLoading && content.postUrl"
-        :href="content.postUrl"
+        v-if="!isLoading && tile.postUrl"
+        :href="tile.postUrl"
         target="_blank"
         rel="noopener noreferrer"
         >View on X</a
@@ -83,17 +83,19 @@ import {
   watch,
   type ComputedRef,
 } from "vue";
-import type {
-  XPostContent,
-  XPostMetadataResponse,
-  XPostRepliesResponse,
+import {
+  xPostRefreshAfterMs,
+  type XPostContent,
+  type XPostMetadataResponse,
+  type XPostRepliesResponse,
 } from "@grids/contracts/types";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import { useGridViewContext } from "@/grid-context/useGridViewContext";
 import { useThemeStore } from "@/stores/theme";
 import { FEATURE_FLAGS, useFeatureFlags } from "@/composables/useFeatureFlags";
+import { useRefreshedTileContent } from "@/composables/useRefreshedTileContent";
 import { useScrollArea } from "@/composables/useScrollArea";
-import { X_STALE_AFTER_MS, xPlayerSrc } from "@/utils/xPostDisplay";
+import { xPlayerSrc } from "@/utils/xPostDisplay";
 import XPostCard from "./XPostCard.vue";
 
 export default defineComponent({
@@ -117,6 +119,10 @@ export default defineComponent({
     const playingPostId = ref<string | null>(null);
     const scrollArea = ref<HTMLElement | null>(null);
     const { gutter: scrollGutter, isOverflowing } = useScrollArea(scrollArea);
+    const { content: tile, applyRefresh } = useRefreshedTileContent(
+      () => props.content,
+      tileId,
+    );
     let repliesLoading = false;
 
     const canEdit = computed(() => gridView.canEdit);
@@ -124,9 +130,9 @@ export default defineComponent({
     const h = computed(() => gridTileH?.value ?? 4);
     const isCompact = computed(() => w.value <= 2 && h.value <= 2);
 
-    const post = computed(() => props.content.post);
-    const quotedPost = computed(() => props.content.quotedPost);
-    const replies = computed(() => props.content.replies ?? []);
+    const post = computed(() => tile.value.post);
+    const quotedPost = computed(() => tile.value.quotedPost);
+    const replies = computed(() => tile.value.replies ?? []);
     const showReplies = computed(
       () => !isCompact.value && replies.value.length > 0,
     );
@@ -142,36 +148,44 @@ export default defineComponent({
         .getCloudFunctionsService()
         .callFunction<TRequest, TResponse | null>(name, data);
 
-    const fetchPost = async () => {
-      if (!canEdit.value || !tileId || !props.content.postId) return;
+    const isDue = (fetchedAt: number | undefined) =>
+      !fetchedAt ||
+      Date.now() - fetchedAt >= xPostRefreshAfterMs(tile.value.postId, Date.now());
 
-      isLoading.value = true;
+    const fetchPost = async () => {
+      if (!tileId || !tile.value.postId) return;
+
+      const hasStored = !!tile.value.post || !!tile.value.unavailable;
+      isLoading.value = !hasStored;
       hasError.value = false;
       try {
         const data = await callFunction<{ postId: string }, XPostMetadataResponse>(
           "getXPostMetadata",
-          { postId: props.content.postId },
+          { postId: tile.value.postId },
         );
         if (!data) throw new Error("getXPostMetadata returned no data");
 
-        gridView.patchTileContentSilently(
-          tileId,
-          "post" in data ? { ...data, unavailable: false } : data,
-        );
+        if (data.fetchedAt > (tile.value.fetchedAt ?? 0)) {
+          applyRefresh("post" in data ? { ...data, unavailable: false } : data);
+        }
       } catch (error) {
-        console.error("Failed to fetch X post:", error);
-        hasError.value = true;
+        if (hasStored) {
+          console.warn("Failed to refresh X post:", error);
+        } else {
+          console.error("Failed to fetch X post:", error);
+          hasError.value = true;
+        }
       } finally {
         isLoading.value = false;
       }
     };
 
     const fetchRepliesIfDue = async () => {
-      const current = props.content.post;
-      if (!canEdit.value || !tileId || !current || current.replyCount === 0) return;
+      const current = tile.value.post;
+      if (!tileId || !current || current.replyCount === 0) return;
       if (repliesLoading || !isEnabled(FEATURE_FLAGS.SOCIAL_X_FEEDS)) return;
-      const lastFetched = props.content.repliesFetchedAt;
-      if (lastFetched && Date.now() - lastFetched < X_STALE_AFTER_MS) return;
+      const lastFetched = tile.value.repliesFetchedAt;
+      if (!isDue(lastFetched)) return;
 
       repliesLoading = true;
       try {
@@ -182,11 +196,8 @@ export default defineComponent({
           postId: current.postId,
           screenName: current.author.screenName,
         });
-        if (data && Array.isArray(data.replies)) {
-          gridView.patchTileContentSilently(tileId, {
-            replies: data.replies,
-            repliesFetchedAt: data.fetchedAt,
-          });
+        if (data && Array.isArray(data.replies) && data.fetchedAt > (lastFetched ?? 0)) {
+          applyRefresh({ replies: data.replies, repliesFetchedAt: data.fetchedAt });
         }
       } catch (error) {
         console.warn("Failed to fetch X replies:", error);
@@ -195,8 +206,12 @@ export default defineComponent({
       }
     };
 
-    const fetchIfMissing = () => {
-      if (!props.content.post && !props.content.unavailable) {
+    // Only editors fill in a missing post; anyone viewing refreshes stored data.
+    const fetchIfDue = () => {
+      const { post: stored, unavailable, fetchedAt } = tile.value;
+      if (stored || unavailable) {
+        if (isDue(fetchedAt)) void fetchPost();
+      } else if (canEdit.value) {
         void fetchPost();
       }
     };
@@ -205,17 +220,18 @@ export default defineComponent({
       () => props.content.postId,
       () => {
         playingPostId.value = null;
-        fetchIfMissing();
+        fetchIfDue();
       },
     );
-    watch(() => props.content.post?.postId, () => void fetchRepliesIfDue());
+    watch(() => tile.value.post?.postId, () => void fetchRepliesIfDue());
 
     onMounted(() => {
-      fetchIfMissing();
+      fetchIfDue();
       void fetchRepliesIfDue();
     });
 
     return {
+      tile,
       isLoading,
       hasError,
       playingPostId,

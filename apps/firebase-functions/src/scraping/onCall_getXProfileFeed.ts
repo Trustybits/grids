@@ -1,42 +1,24 @@
 import * as functions from "firebase-functions/v1";
 import { HttpsError } from "firebase-functions/v1/https";
 import * as logger from "firebase-functions/logger";
-import type {
-  XProfileFeedResponse,
-  XProfileSnapshot,
+import {
+  X_PROFILE_REFRESH_AFTER_MS,
+  type XProfileFeedResponse,
+  type XProfileSnapshot,
 } from "@grids/contracts/types";
 import { noopIfMaintenance } from "../maintenance.js";
-import {
-  requireAuth,
-  requireStringFields,
-} from "../shared/utils_callable.js";
+import { requireStringFields } from "../shared/utils_callable.js";
 import { SCREEN_NAME_PATTERN } from "./utils_xPost.js";
 import { loadXPostSnapshots } from "./utils_xFetch.js";
-import { getXDiscoverySource } from "./utils_xDiscovery.js";
+import { getXDiscoverySource, type XDiscoverySource } from "./utils_xDiscovery.js";
+import { readThroughXCache } from "./utils_xCache.js";
 
 const MAX_POSTS = 10;
 
-/**
- * Cloud Function to fetch an X profile header and its recent posts for the
- * X profile tile. Accounts that don't exist or can't be read resolve as
- * `unavailable` rather than throwing, so the tile can say so.
- */
-export const getXProfileFeed = functions
-  .runWith({ timeoutSeconds: 30 })
-  .https.onCall(async (data, context): Promise<XProfileFeedResponse | null> => {
-  if (noopIfMaintenance("getXProfileFeed")) return null;
-
-  requireAuth(context, "You must be signed in to fetch X profiles.");
-  const { screenName } = requireStringFields(data, ["screenName"], "Missing screenName.");
-  if (!SCREEN_NAME_PATTERN.test(screenName)) {
-    throw new HttpsError("invalid-argument", `Invalid screenName: ${screenName}`);
-  }
-
-  const source = getXDiscoverySource();
-  if (!source) {
-    throw new HttpsError("failed-precondition", "X profile feeds are turned off.");
-  }
-
+async function loadXProfileFeed(
+  source: XDiscoverySource,
+  screenName: string,
+): Promise<XProfileFeedResponse> {
   const fetchedAt = Date.now();
   let discovery;
   try {
@@ -70,4 +52,37 @@ export const getXProfileFeed = functions
   return pinnedPostId
     ? { profile, posts, pinnedPostId, fetchedAt }
     : { profile, posts, fetchedAt };
+}
+
+/**
+ * Cloud Function to fetch an X profile header and its recent posts for the
+ * X profile tile. Accounts that don't exist or can't be read resolve as
+ * `unavailable` rather than throwing, so the tile can say so. Grid visitors
+ * who aren't signed in can refresh profiles that are already cached.
+ */
+export const getXProfileFeed = functions
+  .runWith({ timeoutSeconds: 30 })
+  .https.onCall(async (data, context): Promise<XProfileFeedResponse | null> => {
+  if (noopIfMaintenance("getXProfileFeed")) return null;
+
+  const { screenName } = requireStringFields(data, ["screenName"], "Missing screenName.");
+  if (!SCREEN_NAME_PATTERN.test(screenName)) {
+    throw new HttpsError("invalid-argument", `Invalid screenName: ${screenName}`);
+  }
+
+  const source = getXDiscoverySource();
+  if (!source) {
+    throw new HttpsError("failed-precondition", "X profile feeds are turned off.");
+  }
+
+  const result = await readThroughXCache<XProfileFeedResponse>({
+    key: `profile_${screenName.toLowerCase()}`,
+    refreshAfterMs: () => X_PROFILE_REFRESH_AFTER_MS,
+    canSeed: !!context.auth?.uid,
+    load: () => loadXProfileFeed(source, screenName),
+  });
+  if (!result) {
+    throw new HttpsError("unauthenticated", "You must be signed in to fetch X profiles.");
+  }
+  return result;
 });

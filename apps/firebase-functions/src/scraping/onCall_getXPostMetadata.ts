@@ -1,35 +1,21 @@
 import * as functions from "firebase-functions/v1";
 import { HttpsError } from "firebase-functions/v1/https";
 import * as logger from "firebase-functions/logger";
-import type { XPostMetadataResponse } from "@grids/contracts/types";
-import { noopIfMaintenance } from "../maintenance.js";
 import {
-  requireAuth,
-  requireStringFields,
-} from "../shared/utils_callable.js";
+  xPostRefreshAfterMs,
+  type XPostMetadataResponse,
+} from "@grids/contracts/types";
+import { noopIfMaintenance } from "../maintenance.js";
+import { requireStringFields } from "../shared/utils_callable.js";
 import {
   POST_ID_PATTERN,
   toXPostSnapshot,
   type SyndicationPost,
 } from "./utils_xPost.js";
 import { fetchSyndicationPost } from "./utils_xFetch.js";
+import { readThroughXCache } from "./utils_xCache.js";
 
-/**
- * Cloud Function to fetch an X post (and the post it quotes) for the X post
- * tile. Deleted, withheld, and protected posts resolve as `unavailable`
- * rather than throwing, so the tile can say so.
- */
-export const getXPostMetadata = functions
-  .runWith({ minInstances: 1 })
-  .https.onCall(async (data, context): Promise<XPostMetadataResponse | null> => {
-  if (noopIfMaintenance("getXPostMetadata")) return null;
-
-  requireAuth(context, "You must be signed in to fetch X posts.");
-  const { postId } = requireStringFields(data, ["postId"], "Missing postId.");
-  if (!POST_ID_PATTERN.test(postId)) {
-    throw new HttpsError("invalid-argument", `Invalid postId: ${postId}`);
-  }
-
+async function loadXPost(postId: string): Promise<XPostMetadataResponse> {
   const fetchedAt = Date.now();
   let response: Response;
   try {
@@ -62,4 +48,32 @@ export const getXPostMetadata = functions
 
   const quotedPost = toXPostSnapshot(body.quoted_tweet);
   return quotedPost ? { post, quotedPost, fetchedAt } : { post, fetchedAt };
+}
+
+/**
+ * Cloud Function to fetch an X post (and the post it quotes) for the X post
+ * tile. Deleted, withheld, and protected posts resolve as `unavailable`
+ * rather than throwing, so the tile can say so. Grid visitors who aren't
+ * signed in can refresh posts that are already cached.
+ */
+export const getXPostMetadata = functions
+  .runWith({ minInstances: 1 })
+  .https.onCall(async (data, context): Promise<XPostMetadataResponse | null> => {
+  if (noopIfMaintenance("getXPostMetadata")) return null;
+
+  const { postId } = requireStringFields(data, ["postId"], "Missing postId.");
+  if (!POST_ID_PATTERN.test(postId)) {
+    throw new HttpsError("invalid-argument", `Invalid postId: ${postId}`);
+  }
+
+  const result = await readThroughXCache<XPostMetadataResponse>({
+    key: `post_${postId}`,
+    refreshAfterMs: () => xPostRefreshAfterMs(postId, Date.now()),
+    canSeed: !!context.auth?.uid,
+    load: () => loadXPost(postId),
+  });
+  if (!result) {
+    throw new HttpsError("unauthenticated", "You must be signed in to fetch X posts.");
+  }
+  return result;
 });

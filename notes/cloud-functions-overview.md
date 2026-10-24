@@ -97,17 +97,27 @@ are Firebase v1 and short-circuit early when maintenance mode is enabled (`noopI
   Music track by scraping embed pages / the iTunes API. Requires auth.
 - MI **getXPostMetadata** — Callable. Fetches a public X post (author, text split into link/mention/hashtag
   segments, counts, media posters, quoted post) from X's embed syndication endpoint. Deleted or private
-  posts return `unavailable`. Requires auth.
+  posts return `unavailable`.
 - **getXPostReplies** — Callable (30s). Finds up to 10 reply IDs for an X post, then rebuilds each reply
-  from the syndication endpoint. Discovery failures return an empty list. Requires auth.
+  from the syndication endpoint. Discovery failures throw, so tiles keep the replies they already show.
 - **getXProfileFeed** — Callable (30s). Finds an X account's header details and up to 10 recent post IDs
   (pinned first), then rebuilds each post from the syndication endpoint. Missing accounts return
-  `unavailable`. Requires auth.
+  `unavailable`.
 
   Both X discovery functions read IDs from the data x.com serves to logged-out visitors, which only
   includes a few replies and posts. `X_DISCOVERY_SOURCE` selects the source: `page` (default) or `off`.
   A paid X API source can implement `XDiscoverySource` in `scraping/utils_xDiscovery.ts` without
   changing stored tile data.
+
+  All three read through the `xCache` Firestore collection (server-only; clients can't read it), one
+  document per post, replies list, or profile (`post_<id>`, `replies_<id>`, `profile_<handle>`). Tiles
+  refresh stale data whenever anyone views the grid: posts and replies after 6 hours while under 2
+  days old, daily while under a week old, then weekly; profiles daily (`xPostRefreshAfterMs` and
+  `X_PROFILE_REFRESH_AFTER_MS` in contracts). Signed-in callers can fill any entry. Anonymous
+  visitors can only refresh entries that already exist, so they can't use these functions to fetch
+  arbitrary X content. A `retryAfter` field lets one caller refresh an entry at a time and backs off
+  for an hour after a failed refresh, serving the stored copy meanwhile. Visitors see refreshed data
+  without it being saved to the grid; editors' views save it.
 - MI **getYouTubeMetadata** — Callable (YouTube API-key secret). Fetches public metadata for a YouTube
   video, playlist, channel, or short via the YouTube Data API v3. Requires auth.
 

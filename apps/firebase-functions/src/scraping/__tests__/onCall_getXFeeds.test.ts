@@ -35,10 +35,15 @@ vi.mock("../utils_xFetch.js", () => ({
   loadXPostSnapshots: vi.fn(),
 }));
 
+vi.mock("../utils_xCache.js", () => ({
+  readThroughXCache: vi.fn(),
+}));
+
 import { getXPostReplies as repliesCallable } from "../onCall_getXPostReplies.js";
 import { getXProfileFeed as feedCallable } from "../onCall_getXProfileFeed.js";
 import { getXDiscoverySource } from "../utils_xDiscovery.js";
 import { loadXPostSnapshots } from "../utils_xFetch.js";
+import { readThroughXCache, type XCacheRequest } from "../utils_xCache.js";
 
 type Callable = (data: unknown, context: { auth?: { uid: string } }) => Promise<unknown>;
 const getXPostReplies = repliesCallable as unknown as Callable;
@@ -90,6 +95,11 @@ beforeEach(() => {
   vi.mocked(loadXPostSnapshots).mockImplementation(async (ids) =>
     ids.map((id) => snapshot(id, "ann_nnng")),
   );
+  vi.mocked(readThroughXCache).mockReset();
+  vi.mocked(readThroughXCache).mockImplementation(
+    async (request: XCacheRequest<{ fetchedAt: number }>) =>
+      request.canSeed ? request.load() : null,
+  );
 });
 
 describe("getXPostReplies", () => {
@@ -106,20 +116,35 @@ describe("getXPostReplies", () => {
     });
   });
 
-  it("returns no replies when discovery fails or is turned off", async () => {
+  it("throws when discovery fails or is turned off, so tiles keep their replies", async () => {
     source.findReplyIds.mockRejectedValue(new Error("x.com returned 429"));
-    await expect(
+    await expectHttpsError(
       getXPostReplies({ postId: "100", screenName: "ann_nnng" }, auth),
-    ).resolves.toEqual({ replies: [], fetchedAt });
+      "unavailable",
+    );
     expect(logger.warn).toHaveBeenCalledWith("X reply discovery failed", {
       error: "Error: x.com returned 429",
       postId: "100",
     });
 
     vi.mocked(getXDiscoverySource).mockReturnValue(null);
-    await expect(
+    await expectHttpsError(
       getXPostReplies({ postId: "100", screenName: "ann_nnng" }, auth),
-    ).resolves.toEqual({ replies: [], fetchedAt });
+      "failed-precondition",
+    );
+  });
+
+  it("reads through the shared cache, serving anonymous callers only what's cached", async () => {
+    const cached = { replies: [snapshot("101", "ann_nnng")], fetchedAt: 5 };
+    vi.mocked(readThroughXCache).mockResolvedValueOnce(cached);
+
+    await expect(
+      getXPostReplies({ postId: "100", screenName: "ann_nnng" }, {}),
+    ).resolves.toBe(cached);
+    expect(readThroughXCache).toHaveBeenCalledWith(
+      expect.objectContaining({ key: "replies_100", canSeed: false }),
+    );
+    expect(source.findReplyIds).not.toHaveBeenCalled();
   });
 
   it("validates auth and input", async () => {
@@ -236,6 +261,15 @@ describe("getXProfileFeed", () => {
     await expectHttpsError(
       getXProfileFeed({ screenName: "ann_nnng" }, auth),
       "failed-precondition",
+    );
+  });
+
+  it("caches profiles under the lowercased handle", async () => {
+    source.findProfile.mockResolvedValue(null);
+    await getXProfileFeed({ screenName: "Ann_NNNG" }, auth);
+
+    expect(readThroughXCache).toHaveBeenCalledWith(
+      expect.objectContaining({ key: "profile_ann_nnng", canSeed: true }),
     );
   });
 

@@ -104,7 +104,21 @@ describe("XProfileContent", () => {
     );
   });
 
-  it("does not fetch for viewers, when X feeds are off, or when the feed is fresh", async () => {
+  it("refreshes a stale feed for viewers in place, without writing to the grid", async () => {
+    holder.gridView = reactive({ canEdit: false, patchTileContentSilently: vi.fn() });
+    holder.callFunction.mockResolvedValue({
+      profile: { ...profile, name: "Ann Renamed" },
+      posts: [post("1")],
+      fetchedAt: Date.now(),
+    });
+    const wrapper = mountProfile(makeContent({ profile, posts: [], fetchedAt: 1 }));
+    await flushPromises();
+
+    expect(wrapper.find(".x-profile-name").text()).toBe("Ann Renamed");
+    expect(holder.gridView.patchTileContentSilently).not.toHaveBeenCalled();
+  });
+
+  it("does not fill in a missing feed for viewers, or fetch when X feeds are off or the feed is fresh", async () => {
     holder.gridView = reactive({ canEdit: false, patchTileContentSilently: vi.fn() });
     mountProfile(makeContent());
 

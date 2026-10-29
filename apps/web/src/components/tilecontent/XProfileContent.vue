@@ -19,7 +19,7 @@
       </button>
     </template>
 
-    <template v-else-if="profile && !content.unavailable">
+    <template v-else-if="profile && !tile.unavailable">
       <header class="x-profile-header">
         <img
           v-if="showBanner && profile.bannerUrl"
@@ -98,7 +98,7 @@
         aria-label="Posts"
       >
         <li v-for="post in posts" :key="post.postId" class="x-feed-item">
-          <p v-if="post.postId === content.pinnedPostId" class="x-feed-pinned">
+          <p v-if="post.postId === tile.pinnedPostId" class="x-feed-pinned">
             Pinned
           </p>
           <XPostCard
@@ -118,7 +118,7 @@
 
     <div v-else class="x-profile-status">
       <p v-if="isLoading">Loading profile…</p>
-      <p v-else-if="content.unavailable">This account is unavailable.</p>
+      <p v-else-if="tile.unavailable">This account is unavailable.</p>
       <p v-else-if="hasError">Couldn't load this profile.</p>
       <button
         v-if="hasError && canEdit"
@@ -129,8 +129,8 @@
         Retry
       </button>
       <a
-        v-if="!isLoading && content.profileUrl"
-        :href="content.profileUrl"
+        v-if="!isLoading && tile.profileUrl"
+        :href="tile.profileUrl"
         target="_blank"
         rel="noopener noreferrer"
         >View on X</a
@@ -150,18 +150,19 @@ import {
   watch,
   type ComputedRef,
 } from "vue";
-import type {
-  XProfileContent,
-  XProfileFeedResponse,
+import {
+  X_PROFILE_REFRESH_AFTER_MS,
+  type XProfileContent,
+  type XProfileFeedResponse,
 } from "@grids/contracts/types";
 import { getServiceFactory } from "@/services/ServiceFactorySingleton";
 import { useGridViewContext } from "@/grid-context/useGridViewContext";
 import { useThemeStore } from "@/stores/theme";
 import { FEATURE_FLAGS, useFeatureFlags } from "@/composables/useFeatureFlags";
+import { useRefreshedTileContent } from "@/composables/useRefreshedTileContent";
 import { useScrollArea } from "@/composables/useScrollArea";
 import {
   X_LOGO_PATH,
-  X_STALE_AFTER_MS,
   X_VERIFIED_PATH,
   formatXCount,
   xPlayerSrc,
@@ -189,14 +190,18 @@ export default defineComponent({
     const playingPostId = ref<string | null>(null);
     const feedList = ref<HTMLElement | null>(null);
     const { gutter: feedGutter } = useScrollArea(feedList);
+    const { content: tile, applyRefresh } = useRefreshedTileContent(
+      () => props.content,
+      tileId,
+    );
 
     const canEdit = computed(() => gridView.canEdit);
     const w = computed(() => gridTileW?.value ?? 4);
     const h = computed(() => gridTileH?.value ?? 4);
     const isCompact = computed(() => w.value <= 2 && h.value <= 2);
 
-    const profile = computed(() => props.content.profile);
-    const posts = computed(() => props.content.posts ?? []);
+    const profile = computed(() => tile.value.profile);
+    const posts = computed(() => tile.value.posts ?? []);
     const showBanner = computed(() => w.value >= 3 && h.value >= 4);
     const showFeed = computed(
       () => !isCompact.value && h.value >= 3 && posts.value.length > 0,
@@ -211,10 +216,10 @@ export default defineComponent({
     );
 
     const fetchFeed = async () => {
-      if (!canEdit.value || !tileId || !props.content.screenName) return;
+      if (!tileId || !tile.value.screenName) return;
       if (!isEnabled(FEATURE_FLAGS.SOCIAL_X_FEEDS)) return;
 
-      const hasStoredFeed = !!props.content.profile;
+      const hasStoredFeed = !!tile.value.profile;
       isLoading.value = !hasStoredFeed;
       hasError.value = false;
       try {
@@ -222,16 +227,17 @@ export default defineComponent({
           .getCloudFunctionsService()
           .callFunction<{ screenName: string }, XProfileFeedResponse | null>(
             "getXProfileFeed",
-            { screenName: props.content.screenName },
+            { screenName: tile.value.screenName },
           );
         if (!data) throw new Error("getXProfileFeed returned no data");
 
-        gridView.patchTileContentSilently(
-          tileId,
-          "profile" in data
-            ? { ...data, pinnedPostId: data.pinnedPostId ?? "", unavailable: false }
-            : data,
-        );
+        if (data.fetchedAt > (tile.value.fetchedAt ?? 0)) {
+          applyRefresh(
+            "profile" in data
+              ? { ...data, pinnedPostId: data.pinnedPostId ?? "", unavailable: false }
+              : data,
+          );
+        }
       } catch (error) {
         if (hasStoredFeed) {
           console.warn("Failed to refresh X profile:", error);
@@ -244,10 +250,15 @@ export default defineComponent({
       }
     };
 
+    // Only editors fill in a missing feed; anyone viewing refreshes stored data.
     const fetchIfDue = () => {
-      const { profile: stored, unavailable, fetchedAt } = props.content;
-      const isStale = !fetchedAt || Date.now() - fetchedAt >= X_STALE_AFTER_MS;
-      if ((!stored && !unavailable) || isStale) void fetchFeed();
+      const { profile: stored, unavailable, fetchedAt } = tile.value;
+      if (stored || unavailable) {
+        const isStale = !fetchedAt || Date.now() - fetchedAt >= X_PROFILE_REFRESH_AFTER_MS;
+        if (isStale) void fetchFeed();
+      } else if (canEdit.value) {
+        void fetchFeed();
+      }
     };
 
     watch(
@@ -261,6 +272,7 @@ export default defineComponent({
     onMounted(fetchIfDue);
 
     return {
+      tile,
       isLoading,
       hasError,
       playingPostId,

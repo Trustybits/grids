@@ -68,6 +68,12 @@ function makeContent(overrides: Partial<XPostContent> = {}): XPostContent {
   };
 }
 
+function storedContent(overrides: Partial<XPostContent> = {}): XPostContent {
+  return makeContent({ post: snapshot, fetchedAt: Date.now(), ...overrides });
+}
+
+const EIGHT_DAYS_MS = 8 * 24 * 60 * 60 * 1000;
+
 function mountPost(content: XPostContent) {
   return mount(XPostContentComponent, {
     props: { content },
@@ -101,7 +107,7 @@ describe("XPostContent", () => {
     );
   });
 
-  it("does not fetch for viewers and links out instead", async () => {
+  it("does not fill in a missing post for viewers and links out instead", async () => {
     holder.gridView = reactive({
       canEdit: false,
       patchTileContentSilently: vi.fn(),
@@ -115,13 +121,49 @@ describe("XPostContent", () => {
     );
   });
 
-  it("does not refetch a post that is already stored", async () => {
-    mountPost(makeContent({ post: snapshot }));
+  it("does not refetch a post that is still fresh", async () => {
+    mountPost(storedContent());
     await flushPromises();
-    expect(holder.callFunction).not.toHaveBeenCalledWith(
-      "getXPostMetadata",
-      expect.anything(),
+    expect(holder.callFunction).not.toHaveBeenCalled();
+  });
+
+  it("refreshes a stale post for editors and saves it to the grid", async () => {
+    const updated = { post: { ...snapshot, likeCount: 5000 }, fetchedAt: Date.now() };
+    holder.callFunction.mockResolvedValue(updated);
+    mountPost(storedContent({ fetchedAt: Date.now() - EIGHT_DAYS_MS }));
+    await flushPromises();
+
+    expect(holder.gridView?.patchTileContentSilently).toHaveBeenCalledWith(
+      "tile-1",
+      { ...updated, unavailable: false },
     );
+  });
+
+  it("refreshes a stale post for viewers in place, without writing to the grid", async () => {
+    holder.gridView = reactive({ canEdit: false, patchTileContentSilently: vi.fn() });
+    holder.callFunction.mockResolvedValue({
+      post: { ...snapshot, textSegments: [{ kind: "text", text: "Edited" }] },
+      fetchedAt: Date.now(),
+    });
+    const wrapper = mountPost(storedContent({ fetchedAt: Date.now() - EIGHT_DAYS_MS }));
+    await flushPromises();
+
+    expect(wrapper.find(".x-post-text").text()).toBe("Edited");
+    expect(holder.gridView.patchTileContentSilently).not.toHaveBeenCalled();
+  });
+
+  it("keeps the stored post when a refresh fails or returns older data", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const stale = Date.now() - EIGHT_DAYS_MS;
+    holder.callFunction.mockRejectedValueOnce(new Error("boom"));
+    const failed = mountPost(storedContent({ fetchedAt: stale }));
+    holder.callFunction.mockResolvedValueOnce({ post: snapshot, fetchedAt: stale - 1 });
+    mountPost(storedContent({ fetchedAt: stale }));
+    await flushPromises();
+
+    expect(holder.callFunction).toHaveBeenCalledTimes(2);
+    expect(holder.gridView?.patchTileContentSilently).not.toHaveBeenCalled();
+    expect(failed.text()).not.toContain("Couldn't load this post.");
   });
 
   describe("replies", () => {
@@ -140,7 +182,7 @@ describe("XPostContent", () => {
 
     it("fetches replies for a stored post and stores them without an undo step", async () => {
       holder.callFunction.mockResolvedValue({ replies: [reply], fetchedAt: 5 });
-      mountPost(makeContent({ post: snapshot }));
+      mountPost(storedContent());
       await flushPromises();
 
       expect(holder.callFunction).toHaveBeenCalledWith("getXPostReplies", {
@@ -155,10 +197,10 @@ describe("XPostContent", () => {
 
     it("skips the fetch when X feeds are off, replies are fresh, or there are none", async () => {
       flags.override(FEATURE_FLAGS.SOCIAL_X_FEEDS, false);
-      mountPost(makeContent({ post: snapshot }));
+      mountPost(storedContent());
       flags.override(FEATURE_FLAGS.SOCIAL_X_FEEDS, true);
-      mountPost(makeContent({ post: snapshot, repliesFetchedAt: Date.now() }));
-      mountPost(makeContent({ post: { ...snapshot, replyCount: 0 } }));
+      mountPost(storedContent({ repliesFetchedAt: Date.now() }));
+      mountPost(storedContent({ post: { ...snapshot, replyCount: 0 } }));
       await flushPromises();
 
       expect(holder.callFunction).not.toHaveBeenCalled();
@@ -166,7 +208,7 @@ describe("XPostContent", () => {
 
     it("refetches stale replies", async () => {
       holder.callFunction.mockResolvedValue({ replies: [], fetchedAt: 9 });
-      mountPost(makeContent({ post: snapshot, repliesFetchedAt: 1 }));
+      mountPost(storedContent({ repliesFetchedAt: 1 }));
       await flushPromises();
       expect(holder.callFunction).toHaveBeenCalledWith(
         "getXPostReplies",
@@ -174,11 +216,20 @@ describe("XPostContent", () => {
       );
     });
 
+    it("shows refreshed replies to viewers without writing to the grid", async () => {
+      holder.gridView = reactive({ canEdit: false, patchTileContentSilently: vi.fn() });
+      holder.callFunction.mockResolvedValue({ replies: [reply], fetchedAt: Date.now() });
+      const wrapper = mountPost(storedContent());
+      await flushPromises();
+
+      expect(wrapper.findAll(".x-post-replies .x-feed-item")).toHaveLength(1);
+      expect(holder.gridView.patchTileContentSilently).not.toHaveBeenCalled();
+    });
+
     it("lists stored replies in a scroll area and plays reply videos", async () => {
       const videoReply = { ...reply, media: snapshot.media };
       const wrapper = mountPost(
-        makeContent({
-          post: snapshot,
+        storedContent({
           replies: [videoReply],
           repliesFetchedAt: Date.now(),
         }),
@@ -196,7 +247,7 @@ describe("XPostContent", () => {
   });
 
   it("renders post text as text, never as HTML", () => {
-    const wrapper = mountPost(makeContent({ post: snapshot }));
+    const wrapper = mountPost(storedContent());
     const text = wrapper.find(".x-post-text");
 
     expect(text.text()).toBe("Hi <b>@bob</b>");
@@ -207,7 +258,7 @@ describe("XPostContent", () => {
   });
 
   it("swaps the video poster for X's player when play is pressed", async () => {
-    const wrapper = mountPost(makeContent({ post: snapshot }));
+    const wrapper = mountPost(storedContent());
     expect(wrapper.find("iframe").exists()).toBe(false);
 
     await wrapper.find(".x-post-play").trigger("click");
@@ -234,7 +285,7 @@ describe("XPostContent", () => {
   });
 
   it("shows the unavailable state for deleted posts", () => {
-    const wrapper = mountPost(makeContent({ unavailable: true }));
+    const wrapper = mountPost(makeContent({ unavailable: true, fetchedAt: Date.now() }));
     expect(wrapper.text()).toContain("This post is unavailable.");
   });
 });

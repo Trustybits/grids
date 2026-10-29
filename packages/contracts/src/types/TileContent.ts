@@ -382,6 +382,26 @@ export type XProfileFeedResponse =
     }
   | { unavailable: true; fetchedAt: number };
 
+const HOUR_MS = 60 * 60 * 1000;
+const DAY_MS = 24 * HOUR_MS;
+// X post IDs are snowflakes: milliseconds since this epoch, shifted left 22 bits.
+const X_SNOWFLAKE_EPOCH_MS = 1288834974657;
+const X_SNOWFLAKE_SHIFT = 2 ** 22;
+
+export const X_PROFILE_REFRESH_AFTER_MS = DAY_MS;
+
+/**
+ * How long a post's stored data (and its replies) stays fresh. Counts and
+ * replies move fastest in a post's first days, so young posts refresh sooner.
+ */
+export function xPostRefreshAfterMs(postId: string, now: number): number {
+  const createdAt = Math.floor(Number(postId) / X_SNOWFLAKE_SHIFT) + X_SNOWFLAKE_EPOCH_MS;
+  const age = Number.isFinite(createdAt) ? now - createdAt : Infinity;
+  if (age < 2 * DAY_MS) return 6 * HOUR_MS;
+  if (age < 7 * DAY_MS) return DAY_MS;
+  return 7 * DAY_MS;
+}
+
 export interface DocumentItem {
   id: string;
   fileName: string;

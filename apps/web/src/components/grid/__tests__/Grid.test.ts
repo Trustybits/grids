@@ -1103,6 +1103,7 @@ describe("Grid canvas characterization", () => {
     const grid = makeGrid();
     grid.tiles = [];
     const { store, registerLayoutReadinessAdapter } = makeStore(grid);
+    store.canEdit = false;
     storeHolder.current = store;
 
     const wrapper = await mountGrid();

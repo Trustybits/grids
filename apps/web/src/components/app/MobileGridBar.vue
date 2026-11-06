@@ -1325,8 +1325,8 @@ const onLiftEnd = (point: CarouselLiftPoint, cancelled: boolean) => {
 
   const { placement, hadTarget } = dropCarry();
   if (!placement) {
-    // An empty grid renders nothing to aim at, so a drop anywhere above the
-    // bar there is simply an add, placed as a tap would place it.
+    // No grid is mounted to aim at (it is still loading), so a drop anywhere
+    // above the bar is simply an add, placed as a tap would place it.
     if (!hadTarget && point.y < (pillRect()?.top ?? window.innerHeight)) {
       completeDrop();
       onSelectType(descriptor.id);

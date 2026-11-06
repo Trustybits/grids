@@ -319,7 +319,7 @@ export const useTileDragToAdd = ({ barRect }: TileDragToAddOptions) => {
   /**
    * Let go. Pins the cell under the card and returns where the tile goes, or
    * null when it was not over the grid. `hadTarget` is false when there is no
-   * grid to drop onto at all (an empty grid renders none).
+   * grid to drop onto at all (none is mounted yet).
    */
   const drop = (): { placement: TilePlacement | null; hadTarget: boolean } => {
     const target = getTileDropTarget();

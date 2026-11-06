@@ -2,7 +2,7 @@
 <template>
   <p v-if="gridView.isLoading">Loading layout...</p>
   <div
-    v-else-if="contractTiles.length"
+    v-else-if="contractTiles.length || gridView.canEdit"
     ref="scaleWrapperRef"
     class="grid-scale-wrapper"
     :style="scaleWrapperStyle"
@@ -130,6 +130,12 @@ import type { TilePlacement } from "@/types/GridLayout";
 
 /** Engine id of the placeholder that holds a dragged-in tile type's cell. */
 const DROP_SLOT_ID = "__grid-drop-slot__";
+
+/**
+ * Rows an empty grid stands in for, matching GridVisualGuide's `minRows`: an
+ * editor's empty grid is still somewhere to drop the first tile.
+ */
+const EMPTY_GRID_ROWS = 4;
 
 export default {
   components: {
@@ -390,10 +396,14 @@ export default {
     // content layer and grid root to zero height. Give the root an explicit CSS
     // height from Griddle's own sizing helper; its internal min-height: 100%
     // then restores the full containing block for the governed tiles.
-    const griddleContentHeight = computed(
-      () =>
-        `${gridContentSize(api.config.value, api.tiles.value).height + margin}px`,
-    );
+    const griddleContentHeight = computed(() => {
+      const height =
+        gridContentSize(api.config.value, api.tiles.value).height + margin;
+      const emptyHeight = contractTiles.value.length
+        ? 0
+        : EMPTY_GRID_ROWS * (props.rowHeight + margin) + margin;
+      return `${Math.max(height, emptyHeight)}px`;
+    });
 
     // Selection is a controlled Griddle feature. The app only supports
     // single-tile gestures and owns its hover/edit visuals, so keep Griddle's
@@ -918,12 +928,14 @@ export default {
         const w = Math.min(size.w, cols);
         const h = size.h;
         // Over the grid, with a cell's worth of slack below the last row so a
-        // tile can be dropped onto the end.
+        // tile can be dropped onto the end. An empty grid has only one place
+        // to put it, so anywhere will do.
         const overGrid =
-          point.x >= box.left &&
-          point.x <= box.right &&
-          point.y >= box.top &&
-          point.y <= box.bottom + unit * scale;
+          contractTiles.value.length === 0 ||
+          (point.x >= box.left &&
+            point.x <= box.right &&
+            point.y >= box.top &&
+            point.y <= box.bottom + unit * scale);
         if (!overGrid) {
           closeDropSlot();
           return null;

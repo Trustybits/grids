@@ -1,16 +1,24 @@
 <!--
   PopoverSwatches.vue
 
-  The colour grid shared by the text Color and tile Fill popovers: an optional
-  leading choice (Auto / No fill), the theme swatches, and a hex field. Theme
-  swatches are stored as `var(--token)` so they follow the active theme, the
-  same values the desktop pickers write.
+  The colour controls shared by the text Color and tile Fill popovers: the same
+  saturation/brightness pad and hue slider as Grid settings' colour page, then
+  an optional leading choice (Auto / No fill), the theme swatches, and a hex
+  field. Theme swatches are stored as `var(--token)` so they follow the active
+  theme, the same values the desktop pickers write. A picked colour is a hex,
+  and every step of a drag writes it: the popover visit is one undo step.
 
   No eyedropper: the EyeDropper API only exists in desktop Chromium.
 -->
 <template>
   <div class="pps">
-    <div class="pps__grid" role="listbox" :aria-label="label">
+    <MobileColorPicker
+      v-model="pickerHex"
+      @preview="$emit('pick', $event)"
+      @commit="$emit('pick', $event)"
+    />
+
+    <div class="pps__row" role="listbox" :aria-label="label">
       <button
         v-if="lead"
         type="button"
@@ -62,6 +70,7 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
+import MobileColorPicker from "@/components/app/MobileColorPicker.vue";
 import { normalizeHex } from "@/utils/color";
 
 export interface Swatch {
@@ -85,7 +94,21 @@ const emit = defineEmits<{ pick: [value: string] }>();
 const currentHex = () =>
   typeof props.modelValue === "string" ? normalizeHex(props.modelValue) : "";
 
+/** The current colour as a hex, reading a `var(--token)` from the theme. */
+const resolvedHex = () => {
+  const value = props.modelValue;
+  if (typeof value !== "string") return "";
+  const token = /^var\((--[\w-]+)\)$/.exec(value)?.[1];
+  return normalizeHex(
+    token ? getComputedStyle(document.body).getPropertyValue(token) : value,
+  );
+};
+
 const hexDraft = ref(currentHex().slice(1));
+
+// The pad and hue start from the current colour, swatches included; "No fill"
+// and "Auto" have no colour to show, so they leave it where it was.
+const pickerHex = ref(resolvedHex() || "#FFFFFF");
 
 // Show a picked custom hex; swatch tokens leave the field for typing.
 watch(
@@ -93,6 +116,7 @@ watch(
   () => {
     const hex = currentHex();
     if (hex) hexDraft.value = hex.slice(1);
+    pickerHex.value = resolvedHex() || pickerHex.value;
   },
 );
 
@@ -116,17 +140,39 @@ const applyHex = () => {
   gap: 12px;
 }
 
-.pps__grid {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+/* MobileColorPicker brings its own sheet chrome; the card is the surface here. */
+.pps :deep(.mcp-panel) {
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* Shorter than the Grid settings page: the tile stays in view above the card. */
+.pps :deep(.mcp-pad) {
+  height: 120px;
+}
+
+.pps__row {
+  display: flex;
   gap: 8px;
+  /* Room for the current swatch's ring, which the scrolling would clip. */
+  margin: -4px;
+  padding: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.pps__row::-webkit-scrollbar {
+  display: none;
 }
 
 .pps__swatch,
 .pps__lead {
-  aspect-ratio: 1;
-  min-width: 36px;
-  min-height: 36px;
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
   padding: 0;
   border: 1px solid var(--color-stroke);
   border-radius: 10px;
@@ -136,6 +182,7 @@ const applyHex = () => {
 }
 
 .pps__lead {
+  width: 52px;
   background: var(--color-tool-selected-bg);
   color: var(--color-content-high);
   font-family: "Inter", sans-serif;

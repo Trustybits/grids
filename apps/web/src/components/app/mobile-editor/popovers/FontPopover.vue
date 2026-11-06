@@ -1,33 +1,54 @@
 <!--
-  FontPopover.vue — Font (Figma 146:22581): the family (a native picker, so the
-  phone shows its own wheel/list), a size preset, and a custom px stepper. Applies to all the text in the tile(s); while typing, the
-  format bar handles the selected words instead.
+  FontPopover.vue — Font (Figma 146:22581): the family (a list that opens in the
+  card, each name set in its own font, which a native picker can't do), a size
+  preset, and a custom px stepper. Applies to all the text in the tile(s); while
+  typing, the format bar handles the selected words instead.
 -->
 <template>
   <div class="pp-stack">
     <div class="pp-section">
       <p class="pp-label">Font</p>
-      <label class="pp-select">
-        <select
-          :value="typeof family === 'string' ? family : ''"
-          aria-label="Font family"
+      <button
+        type="button"
+        class="pp-select"
+        aria-label="Font family"
+        aria-haspopup="listbox"
+        :aria-expanded="fontListOpen"
+        @click="fontListOpen = !fontListOpen"
+      >
+        <span
+          class="pp-select__value"
           :style="typeof family === 'string' ? { fontFamily: family } : undefined"
-          @change="setFamily(($event.target as HTMLSelectElement).value)"
         >
-          <option v-if="typeof family !== 'string'" value="" disabled>
-            Mixed
-          </option>
-          <option
-            v-for="name in FONT_FAMILIES"
-            :key="name"
-            :value="name"
-            :style="{ fontFamily: name }"
-          >
-            {{ name }}
-          </option>
-        </select>
-        <MobileToolIcon name="chevron" class="pp-select__chevron" />
-      </label>
+          {{ typeof family === "string" ? family : "Mixed" }}
+        </span>
+        <MobileToolIcon
+          name="chevron"
+          class="pp-select__chevron"
+          :class="{ 'is-open': fontListOpen }"
+        />
+      </button>
+      <div
+        v-if="fontListOpen"
+        class="pp-menu"
+        role="listbox"
+        aria-label="Font family"
+      >
+        <button
+          v-for="name in FONT_FAMILIES"
+          :key="name"
+          type="button"
+          class="pp-menu__item"
+          role="option"
+          :class="{ 'is-current': name === family }"
+          :aria-selected="name === family"
+          :style="{ fontFamily: name }"
+          @click="pickFamily(name)"
+        >
+          {{ name }}
+          <CheckIcon v-if="name === family" :size="20" class="pp-menu__check" />
+        </button>
+      </div>
     </div>
 
     <div class="pp-section">
@@ -80,6 +101,7 @@
 import { computed, ref, watch } from "vue";
 import PopoverChoices, { type PopoverChoice } from "./PopoverChoices.vue";
 import MobileToolIcon from "../MobileToolIcon.vue";
+import CheckIcon from "@/components/icons/CheckIcon.vue";
 import { useToolPopoverVisit } from "@/composables/useToolPopoverVisit";
 import { WRITERS } from "@/registries/tileToolbar/mobileTools";
 import { FONT_FAMILIES, FONT_SIZES } from "@/constants/textStyles";
@@ -122,7 +144,12 @@ watch(
   { immediate: true },
 );
 
-const setFamily = (name: string) => visit.write(WRITERS.fontFamily, name);
+const fontListOpen = ref(false);
+
+const pickFamily = (name: string) => {
+  visit.write(WRITERS.fontFamily, name);
+  fontListOpen.value = false;
+};
 
 const setSize = (px: number) => visit.write(WRITERS.fontSizePx, px);
 

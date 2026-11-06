@@ -25,34 +25,75 @@
 }
 
 .pp-scope .pp-select {
-  position: relative;
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
   height: 58px;
+  padding: 0 12px;
   border: 2px solid var(--color-tool-active);
+  border-radius: 12px;
+  background: var(--color-input-edit);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.pp-scope .pp-select__value {
+  overflow: hidden;
+  font-size: 17px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.pp-scope .pp-select__chevron {
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  transition: transform var(--duration-fast) var(--easing-smooth);
+}
+
+.pp-scope .pp-select__chevron.is-open {
+  transform: rotate(180deg);
+}
+
+/* The open list of a .pp-select, in the card so it can't be clipped. */
+.pp-scope .pp-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px;
   border-radius: 12px;
   background: var(--color-input-edit);
 }
 
-.pp-scope .pp-select select {
-  appearance: none;
-  width: 100%;
-  height: 100%;
-  padding: 0 44px 0 12px;
+.pp-scope .pp-menu__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 10px;
   border: none;
-  border-radius: inherit;
+  border-radius: 8px;
   background: transparent;
-  color: var(--color-text-primary);
+  color: var(--color-content-high);
   font-size: 17px;
-  outline: none;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.pp-scope .pp-select__chevron {
-  position: absolute;
-  right: 12px;
-  width: 24px;
-  height: 24px;
-  pointer-events: none;
+.pp-scope .pp-menu__item.is-current {
+  background: var(--color-toolbar-background);
+  color: var(--color-text-primary);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+}
+
+.pp-scope .pp-menu__check {
+  flex: 0 0 auto;
+  color: var(--color-tool-active);
 }
 
 .pp-scope .pp-stepper {

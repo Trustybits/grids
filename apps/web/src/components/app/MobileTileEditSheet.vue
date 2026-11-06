@@ -612,7 +612,7 @@ const onDelete = () => {
   transition: outline-color var(--duration-fast) var(--easing-smooth);
 
   &.is-selected {
-    outline: var(--border-width-lg) solid var(--grids-brand-purple);
+    outline: var(--border-width-lg) solid var(--color-tool-active);
     outline-offset: var(--border-width-lg);
     color: var(--color-text-primary);
   }
@@ -692,7 +692,7 @@ const onDelete = () => {
   cursor: pointer;
 
   &.is-selected {
-    outline: var(--border-width-lg) solid var(--grids-brand-purple);
+    outline: var(--border-width-lg) solid var(--color-tool-active);
     outline-offset: var(--border-width-lg);
     color: var(--color-text-primary);
   }

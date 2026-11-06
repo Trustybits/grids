@@ -506,7 +506,7 @@ const logout = async () => {
 
 .mmd-analytics__trend {
   flex: 0 0 auto;
-  color: var(--grids-brand-purple);
+  color: var(--color-tool-active);
 }
 
 .mmd-analytics__chevron {

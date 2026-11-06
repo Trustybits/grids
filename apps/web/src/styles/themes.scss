@@ -35,7 +35,7 @@ body.theme-light,
   --color-glass-bar: rgba(255, 255, 255, 0.72);
   --color-selection-ring: var(--color-primary-500);
 
-  --primary-color: #009688;
+  --primary-color: var(--color-primary-500);
   --secondary-color: #bfc2c462;
   --destructive-color: #e91e63;
   --text-color: #33312c;
@@ -77,7 +77,7 @@ body.theme-dark,
   --color-glass-bar: rgba(12, 12, 12, 0.72);
   --color-selection-ring: var(--color-primary-400);
 
-  --primary-color: #9e4db6;
+  --primary-color: var(--color-primary-500);
   --secondary-color: #312a354b;
   --destructive-color: #ec407a;
   --text-color: #fffef5;

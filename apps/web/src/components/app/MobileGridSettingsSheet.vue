@@ -8,9 +8,10 @@
   bottom corners are squared so they line up with the (top-squared) command
   input, and the whole surface reads as one.
 
-  This component owns only the panel contents: a fixed GRID ID header, a
-  separator, and a scrollable, live-filterable list of settings (filtered by the
-  `query` the parent feeds down from the `/GRID` input). All behavior comes from
+  This component owns only the panel contents: a scrollable, live-filterable
+  list of settings (filtered by the `query` the parent feeds down from the
+  `/GRID` input), a separator, and the GRID ID at the bottom, which is never
+  filtered out. All behavior comes from
   the shared `useGridSettings` composable so this and the desktop menu never
   drift. Scope: GRID ID + copy, GRID THEME (light/dark preview cards), GRID
   BACKGROUND (image / default / color), Gravity, Default Grid, Publish Template,
@@ -24,21 +25,6 @@
     :role="card ? 'group' : 'dialog'"
     aria-label="Grid settings"
   >
-    <div class="mgs-header">
-      <span class="mgs-header__label">GRID ID:</span>
-      <span class="mgs-header__value">{{ gridPageId }}</span>
-      <button
-        type="button"
-        class="mgs-copy"
-        aria-label="Copy grid link"
-        @click="onCopy"
-      >
-        <ClipboardIcon :size="18" />
-      </button>
-    </div>
-
-    <Divider class="mgs-separator" />
-
     <div class="mgs-body">
       <template v-if="isOwner">
         <!-- GRID THEME — light/dark preview cards drive the per-grid theme
@@ -205,6 +191,21 @@
       </template>
 
       <p v-if="!anyVisible" class="mgs-empty">No settings match “{{ query }}”.</p>
+    </div>
+
+    <Divider class="mgs-separator" />
+
+    <div class="mgs-header">
+      <span class="mgs-header__label">GRID ID:</span>
+      <span class="mgs-header__value">{{ gridPageId }}</span>
+      <button
+        type="button"
+        class="mgs-copy"
+        aria-label="Copy grid link"
+        @click="onCopy"
+      >
+        <ClipboardIcon :size="18" />
+      </button>
     </div>
 
     <input
@@ -507,7 +508,7 @@ const onTransfer = () => {
 // rhythm: the sheet's height budget is tight on a 320x568 phone. Selector is
 // deliberately specific enough to beat the shorthand `margin` it overrides.
 .mgs-panel > .mgs-separator {
-  margin-top: 0;
+  margin-bottom: 0;
 }
 
 .mgs-body {
@@ -682,6 +683,7 @@ const onTransfer = () => {
 
 .mgs-panel--card .mgs-header {
   min-height: 44px;
+  margin-top: 8px;
   padding: 0 4px 0 12px;
   border-radius: 10px;
   background: var(--color-input-edit);

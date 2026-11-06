@@ -344,8 +344,14 @@ export default {
               ui.mobileArrangeTileId,
               true,
             );
+            // Whatever the tile, placeholders included: arranging is the
+            // one way into resizing here, and it always shows the corners.
             return tile?.i && tile.i === ui.mobileArrangeTileId
-              ? { ...caps, resizeHandles: ARRANGE_RESIZE_HANDLES }
+              ? {
+                  ...caps,
+                  resizable: true,
+                  resizeHandles: ARRANGE_RESIZE_HANDLES,
+                }
               : caps;
           }
           return touchActivationCaps(

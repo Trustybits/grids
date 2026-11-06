@@ -484,10 +484,9 @@ export default defineComponent({
     });
 
     const isTileResizable = computed(() => {
-      if (!gridView.canEdit || isSuggestion.value) {
-        return false;
-      }
+      if (!gridView.canEdit) return false;
       if (isMobileToolbar.value) return isArranged.value && !isEditing.value;
+      if (isSuggestion.value) return false;
       if (isTouchDevice()) {
         return (
           (isMobileToolbar.value ? isArranged.value : isActivated.value) &&
@@ -794,17 +793,17 @@ export default defineComponent({
         return;
       }
 
-      // A suggestion turns into its real tile on the first tap.
-      if (isSuggestion.value) {
-        if (event.cancelable) event.preventDefault();
-        handleGridShortClick(event as TouchEvent);
-        return;
-      }
-
       // A tap on the arranged tile finishes arranging, back where it began.
       if (isArranged.value) {
         if (event.cancelable) event.preventDefault();
         uiStore.finishMobileArrange();
+        return;
+      }
+
+      // A suggestion turns into its real tile on the first tap.
+      if (isSuggestion.value) {
+        if (event.cancelable) event.preventDefault();
+        handleGridShortClick(event as TouchEvent);
         return;
       }
 

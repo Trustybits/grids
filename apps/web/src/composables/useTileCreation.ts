@@ -131,8 +131,9 @@ const ALL_TILE_TYPES: readonly TileTypeDescriptor[] = [
 /**
  * What a dropped card becomes for types that need a URL or file before their
  * real tile can exist: the grid's own fill-in placeholder — the same kind of
- * "Add Link" tile a new grid starts with — which the owner completes on the
- * tile itself, and which visitors never see.
+ * "Add Link" tile a new grid starts with — which visitors never see. Link and
+ * Embed ask for their URL as they land; Image waits for a tap on the tile, as
+ * only a tap can open the file picker.
  */
 const DROP_PLACEHOLDERS: Partial<
   Record<string, { action: SuggestionAction; label: string }>
@@ -232,8 +233,9 @@ export const useTileCreation = () => {
    * Adds the tile a card dropped on the grid stands for, straight away — even
    * for types that would otherwise ask for something first. Link, Embed and
    * Image land as fill-in placeholders (see DROP_PLACEHOLDERS) and a map
-   * starts at the current location. Returns null for a type that cannot exist
-   * without its input (Document), so the caller can ask for it instead.
+   * starts at the current location. A placeholder left unfilled stays on the
+   * grid, to fill in later. Returns null for a type that cannot exist without
+   * its input (Document), so the caller can ask for it instead.
    */
   const createDroppedTile = (id: string): string | null => {
     const descriptor = tileTypes.value.find((type) => type.id === id);
@@ -242,7 +244,13 @@ export const useTileCreation = () => {
       return createTile(descriptor.contentType);
     }
     const placeholder = DROP_PLACEHOLDERS[id];
-    if (placeholder) return createTile(ContentType.SUGGESTION, placeholder);
+    if (placeholder) {
+      const tileId = createTile(ContentType.SUGGESTION, placeholder);
+      if (tileId && placeholder.action !== "media") {
+        uiStore.setPendingFocusTileId(tileId);
+      }
+      return tileId;
+    }
     if (id === "map") return createTile(ContentType.MAP);
     return null;
   };

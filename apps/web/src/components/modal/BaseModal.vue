@@ -96,7 +96,7 @@ const handleOverlayClick = () => {
   bottom: 100px;
   padding: var(--spacing-xs);
   width: fit-content;
-  min-width: 360px;
+  min-width: min(360px, calc(100vw - 32px));
   max-width: 750px;
 }
 

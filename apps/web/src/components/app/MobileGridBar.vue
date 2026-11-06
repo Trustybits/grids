@@ -1339,9 +1339,9 @@ const onLiftEnd = (point: CarouselLiftPoint, cancelled: boolean) => {
   gridController.reserveTilePlacement(placement);
 
   // A dropped card becomes its tile immediately — Link / Embed / Image as a
-  // fill-in placeholder, Map at the current location — created now, while the
-  // grid is still holding the cell, and shown when the card has settled into
-  // it and the grid lets go.
+  // fill-in placeholder (Link and Embed then ask for their URL), Map at the
+  // current location — created now, while the grid is still holding the cell,
+  // and shown when the card has settled into it and the grid lets go.
   if (descriptor.id !== "document") {
     if (!createDroppedTile(descriptor.id)) {
       flyHome();

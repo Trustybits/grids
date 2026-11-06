@@ -82,6 +82,8 @@ watch(
     await nextTick();
     setTimeout(() => inputEl.value?.focus(), 50);
   },
+  // A dropped Link or Embed tile mounts with its prompt already open.
+  { immediate: true },
 );
 
 const handleClose = () => emit("close");

@@ -567,6 +567,17 @@ export default defineComponent({
       }
     };
 
+    // A Link or Embed card dropped on the grid asks for its URL as it lands.
+    watch(
+      () => isSuggestion.value && gridView.pendingFocusTileId === props.tile.i,
+      (pending) => {
+        if (!pending) return;
+        gridView.setPendingFocusTileId(null);
+        onSuggestionShortClick();
+      },
+      { immediate: true },
+    );
+
     const closeSuggestionLinkModal = () => {
       showSuggestionLinkModal.value = false;
     };

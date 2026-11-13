@@ -2,13 +2,14 @@
   MobileToolPopover.vue
 
   The small card that floats 8px above the tile toolbar while a tool is open
-  (plan S2): a heading for the tool, a close ✕, and that one tool's controls. The
+  (plan S2): a pull bar, and that one tool's controls. The
   toolbar stays below it with the tool shown as selected.
 
   - Tapping another popover tool swaps the body in place and the card's height
     morphs; it never closes and reopens.
   - Changes show on the tile live and the visit is one undo step
-    (`provideToolPopoverVisit`): ✕, another tool, deselecting and unmounting
+    (`provideToolPopoverVisit`): pulling the bar down (or tapping it), another
+    tool, deselecting and unmounting
     all close it.
   - The tile stays in view above it (useKeepEditedTileInView, run by the bar).
   - Rides on the keyboard with the rest of the bottom bar.
@@ -23,18 +24,15 @@
     :style="{ '--mtp-origin-x': originX }"
     data-tile-edit-surface
   >
-    <header class="mtp__header">
-      <h2 class="mtp__title">{{ title }}</h2>
-      <button
-        ref="doneRef"
-        type="button"
-        class="mtp__close"
-        aria-label="Close"
-        @click="close"
-      >
-        <CloseIcon :size="18" />
-      </button>
-    </header>
+    <button
+      type="button"
+      class="mtp__grabber"
+      aria-label="Close"
+      @pointerdown="onPullStart"
+      @click="onGrabberClick"
+    >
+      <span class="mtp__grabber-bar" aria-hidden="true" />
+    </button>
 
     <div :key="toolId" class="mtp__body">
       <component :is="body" />
@@ -59,7 +57,6 @@ import {
 import { useGridController } from "@/controllers/useGridController";
 import { useMorphFlip } from "@/composables/useMorphFlip";
 import { provideToolPopoverVisit } from "@/composables/useToolPopoverVisit";
-import CloseIcon from "@/components/icons/CloseIcon.vue";
 import { MOBILE_POPOVER_BODIES } from "./popovers";
 
 /** One tile when a tile is selected; several in multi-edit. */
@@ -68,9 +65,8 @@ const props = defineProps<{ tiles: Tile[]; toolId: MobileToolId }>();
 const controller = useGridController();
 
 const cardRef = ref<HTMLElement | null>(null);
-const doneRef = ref<HTMLButtonElement | null>(null);
 
-/** Each card's heading says what the tool is for, in the user's words. */
+/** Each card's name for screen readers says what the tool is for. */
 const TITLES: Partial<Record<MobileToolId, string>> = {
   font: "Choose your font",
   style: "Style your text",
@@ -104,6 +100,67 @@ const visit = provideToolPopoverVisit(
 );
 
 const close = () => controller.setMobileOpenTool(null);
+
+// ── Pull bar ────────────────────────────────────────────────────────────────
+// Dragging the bar down moves the card with the finger; letting go past
+// PULL_CLOSE_PX, or with a quick flick, closes it, otherwise it springs back.
+// A plain tap (or Enter/Space) closes it too, so it is the card's close button.
+const PULL_CLOSE_PX = 56;
+const PULL_FLICK_PX_PER_MS = 0.5;
+/** A press that moved less than this is a tap. */
+const PULL_TAP_PX = 6;
+let pulled = false;
+
+const onPullStart = (event: PointerEvent) => {
+  const card = cardRef.value;
+  if (!card || !event.isPrimary || event.button !== 0) return;
+  const startY = event.clientY;
+  let lastY = startY;
+  let lastT = event.timeStamp;
+  let velocity = 0;
+  pulled = false;
+  card.style.transition = "none";
+
+  const onMove = (move: PointerEvent) => {
+    if (move.pointerId !== event.pointerId) return;
+    const dt = move.timeStamp - lastT;
+    if (dt > 0) velocity = (move.clientY - lastY) / dt;
+    lastY = move.clientY;
+    lastT = move.timeStamp;
+    const dy = Math.max(0, move.clientY - startY);
+    if (dy > PULL_TAP_PX) pulled = true;
+    card.style.transform = dy ? `translateY(${dy}px)` : "";
+  };
+  const onEnd = (end: PointerEvent) => {
+    if (end.pointerId !== event.pointerId) return;
+    window.removeEventListener("pointermove", onMove);
+    window.removeEventListener("pointerup", onEnd);
+    window.removeEventListener("pointercancel", onEnd);
+    const dy = Math.max(0, lastY - startY);
+    if (
+      end.type === "pointerup" &&
+      pulled &&
+      (dy > PULL_CLOSE_PX || velocity > PULL_FLICK_PX_PER_MS)
+    ) {
+      close();
+      return;
+    }
+    card.style.transition = "transform 200ms cubic-bezier(0.2, 0.9, 0.3, 1.2)";
+    card.style.transform = "";
+  };
+  window.addEventListener("pointermove", onMove);
+  window.addEventListener("pointerup", onEnd);
+  window.addEventListener("pointercancel", onEnd);
+};
+
+/** The click that ends a pull is not a tap. */
+const onGrabberClick = () => {
+  if (pulled) {
+    pulled = false;
+    return;
+  }
+  close();
+};
 
 // ── Swap in place ───────────────────────────────────────────────────────────
 const { morph } = useMorphFlip(cardRef);
@@ -196,39 +253,43 @@ defineExpose({ close });
   outline-offset: 2px;
 }
 
-.mtp__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.mtp__title {
-  margin: 0;
-  font-family: "Inter", sans-serif;
-  font-size: 14px;
-  font-weight: 600;
-  line-height: 1;
-  color: var(--color-text-primary);
-}
-
-.mtp__close {
+/* The pull bar: a wide, short touch target across the top of the card that
+   stays put while the body scrolls under it. */
+.mtp__grabber {
+  position: sticky;
+  z-index: 1;
+  top: -12px;
   display: grid;
   flex: none;
   place-items: center;
-  width: 32px;
-  height: 32px;
+  height: 24px;
+  margin: -12px -14px -6px;
   padding: 0;
   border: none;
-  border-radius: 50%;
-  background: var(--color-tool-on-bg);
-  color: var(--color-tool-active);
-  cursor: pointer;
+  background: var(--color-toolbar-background);
+  cursor: grab;
+  touch-action: none;
   -webkit-tap-highlight-color: transparent;
 }
 
-.mtp__close:active {
-  transform: scale(0.95);
+.mtp__grabber:active {
+  cursor: grabbing;
+}
+
+.mtp__grabber:focus-visible {
+  outline: none;
+}
+
+.mtp__grabber:focus-visible .mtp__grabber-bar {
+  outline: 2px solid var(--color-tool-active);
+  outline-offset: 3px;
+}
+
+.mtp__grabber-bar {
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--color-content-low);
 }
 
 .mtp__body {

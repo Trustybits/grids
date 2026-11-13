@@ -2,13 +2,13 @@
   MobileToolPopover.vue
 
   The small card that floats 8px above the tile toolbar while a tool is open
-  (plan S2): the tool's name, a Done pill, and that one tool's controls. The
+  (plan S2): a heading for the tool, a close ✕, and that one tool's controls. The
   toolbar stays below it with the tool shown as selected.
 
   - Tapping another popover tool swaps the body in place and the card's height
     morphs; it never closes and reopens.
   - Changes show on the tile live and the visit is one undo step
-    (`provideToolPopoverVisit`): Done, another tool, deselecting and unmounting
+    (`provideToolPopoverVisit`): ✕, another tool, deselecting and unmounting
     all close it.
   - The tile stays in view above it (useKeepEditedTileInView, run by the bar).
   - Rides on the keyboard with the rest of the bottom bar.
@@ -28,10 +28,11 @@
       <button
         ref="doneRef"
         type="button"
-        class="mtp__done"
+        class="mtp__close"
+        aria-label="Close"
         @click="close"
       >
-        Done
+        <CloseIcon :size="18" />
       </button>
     </header>
 
@@ -58,6 +59,7 @@ import {
 import { useGridController } from "@/controllers/useGridController";
 import { useMorphFlip } from "@/composables/useMorphFlip";
 import { provideToolPopoverVisit } from "@/composables/useToolPopoverVisit";
+import CloseIcon from "@/components/icons/CloseIcon.vue";
 import { MOBILE_POPOVER_BODIES } from "./popovers";
 
 /** One tile when a tile is selected; several in multi-edit. */
@@ -68,8 +70,28 @@ const controller = useGridController();
 const cardRef = ref<HTMLElement | null>(null);
 const doneRef = ref<HTMLButtonElement | null>(null);
 
+/** Each card's heading says what the tool is for, in the user's words. */
+const TITLES: Partial<Record<MobileToolId, string>> = {
+  font: "Choose your font",
+  style: "Style your text",
+  color: "Choose your text color",
+  fill: "Choose your colors",
+  position: "Position your text",
+  link: "Add your link",
+  border: "Choose your border",
+  caption: "Write your caption",
+  more: "More options",
+  image: "Choose your image",
+  photo: "Choose your photo",
+  shape: "Choose your shape",
+  search: "Find your place",
+  mapStyle: "Choose your map style",
+};
+
 const tool = computed(() => MOBILE_TOOLS[props.toolId]);
-const title = computed(() =>
+const title = computed(() => TITLES[props.toolId] ?? tool.value.label);
+/** Undo labels keep the short tool name ("Edit fill"). */
+const toolName = computed(() =>
   props.toolId === "mapStyle" ? "Map style" : tool.value.label,
 );
 const body = computed<Component | undefined>(
@@ -78,7 +100,7 @@ const body = computed<Component | undefined>(
 
 const visit = provideToolPopoverVisit(
   () => props.tiles,
-  () => `Edit ${title.value.toLowerCase()}`,
+  () => `Edit ${toolName.value.toLowerCase()}`,
 );
 
 const close = () => controller.setMobileOpenTool(null);
@@ -190,21 +212,22 @@ defineExpose({ close });
   color: var(--color-text-primary);
 }
 
-.mtp__done {
+.mtp__close {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 32px;
   height: 32px;
-  padding: 0 14px;
+  padding: 0;
   border: none;
-  border-radius: 16px;
+  border-radius: 50%;
   background: var(--color-tool-on-bg);
   color: var(--color-tool-active);
-  font-family: "Inter", sans-serif;
-  font-size: 14px;
-  font-weight: 600;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
 
-.mtp__done:active {
+.mtp__close:active {
   transform: scale(0.95);
 }
 

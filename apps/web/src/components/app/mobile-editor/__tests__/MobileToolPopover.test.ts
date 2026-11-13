@@ -80,23 +80,23 @@ describe("MobileToolPopover", () => {
     });
   });
 
-  it("is a labelled dialog with the tool's name and a Done pill", async () => {
+  it("is a labelled dialog with the tool's heading and a close button", async () => {
     const wrapper = await mountPopover("border");
     const card = wrapper.get('[role="dialog"]');
-    expect(card.attributes("aria-label")).toBe("Border");
+    expect(card.attributes("aria-label")).toBe("Choose your border");
     expect(card.attributes("data-tile-edit-surface")).toBeDefined();
-    expect(wrapper.get(".mtp__title").text()).toBe("Border");
-    expect(wrapper.get(".mtp__done").text()).toBe("Done");
+    expect(wrapper.get(".mtp__title").text()).toBe("Choose your border");
+    expect(wrapper.get(".mtp__close").attributes("aria-label")).toBe("Close");
     wrapper.unmount();
   });
 
-  it("Done closes the tool", async () => {
+  it("the close button closes the tool", async () => {
     const wrapper = await mountPopover("border");
     // After mounting: the component's imports can swap the active store.
     const ui = useGridUiStore();
     ui.setMobileEditTile("tile-1");
     ui.setMobileOpenTool("border");
-    await wrapper.get(".mtp__done").trigger("click");
+    await wrapper.get(".mtp__close").trigger("click");
     expect(ui.mobileOpenToolId).toBeNull();
     wrapper.unmount();
   });
@@ -122,7 +122,7 @@ describe("MobileToolPopover", () => {
     await wrapper.setProps({ toolId: "position" as never });
     await flushPromises();
     expect(m.commit).toHaveBeenCalledTimes(1);
-    expect(wrapper.get(".mtp__title").text()).toBe("Position");
+    expect(wrapper.get(".mtp__title").text()).toBe("Position your text");
     expect(wrapper.text()).toContain("Middle");
     wrapper.unmount();
   });

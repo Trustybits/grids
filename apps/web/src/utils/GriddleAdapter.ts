@@ -88,6 +88,8 @@ export interface GriddleTileCaps {
   minH: number;
   maxW: number;
   maxH: number;
+  /** Per-tile corner handles; omitted → the grid-level setting. */
+  resizeHandles?: Corner[];
 }
 
 export interface ToGriddleTilesOptions {
@@ -229,6 +231,7 @@ export function toGriddleTile(
     minH: caps.minH,
     maxW: caps.maxW,
     maxH: caps.maxH,
+    ...(caps.resizeHandles ? { resizeHandles: caps.resizeHandles } : {}),
   };
 }
 

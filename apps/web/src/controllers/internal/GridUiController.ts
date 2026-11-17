@@ -33,6 +33,38 @@ export class GridUiController {
     this.stores.ui.setMobileEditTile(tileId);
   }
 
+  setMobileArrangeTile(tileId: string | null): void {
+    this.stores.ui.setMobileArrangeTile(tileId);
+  }
+
+  finishMobileArrange(): void {
+    this.stores.ui.finishMobileArrange();
+  }
+
+  setMobileOpenTool(toolId: string | null): void {
+    this.stores.ui.setMobileOpenTool(toolId);
+  }
+
+  setMobileSheetExpanded(expanded: boolean): void {
+    this.stores.ui.setMobileSheetExpanded(expanded);
+  }
+
+  enterMobileMultiSelect(): void {
+    this.stores.ui.enterMobileMultiSelect();
+  }
+
+  toggleMobileMultiSelectTile(tileId: string): void {
+    this.stores.ui.toggleMobileMultiSelectTile(tileId);
+  }
+
+  clearMobileEditor(): void {
+    this.stores.ui.clearMobileEditor();
+  }
+
+  pruneMobileEditor(existingIds: ReadonlySet<string>): void {
+    this.stores.ui.pruneMobileEditor(existingIds);
+  }
+
   setShowMetaData(value: boolean): void {
     this.stores.ui.setShowMetaData(value);
     this.dependencies.setCookieValue(

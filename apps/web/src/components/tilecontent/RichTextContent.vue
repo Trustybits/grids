@@ -305,9 +305,12 @@ export default defineComponent({
     // Pointer devices get the floating toolbar over the text. Touch devices
     // get a bar docked on the keyboard: in the Mobile 2.0 chrome the command
     // bar hosts it (it already rests on the keyboard), elsewhere this tile
-    // docks its own.
+    // docks its own. A narrow pointer window in the phone chrome uses the
+    // command bar's too.
     const { isTouchDevice, isMobile2 } = useMobileExperience();
-    const showFormatToolbar = computed(() => !isTouchDevice.value);
+    const showFormatToolbar = computed(
+      () => !isTouchDevice.value && !isMobile2.value,
+    );
     const showDockedBar = computed(
       () => isTouchDevice.value && !isMobile2.value,
     );

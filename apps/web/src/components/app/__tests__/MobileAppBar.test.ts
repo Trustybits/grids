@@ -53,7 +53,10 @@ vi.mock("@/components/ui-elements/Button.vue", () => ({
 // The Publish control is exercised by its own tests; stub it here so mounting
 // the bar doesn't pull in usePublish's service/auth/router dependencies.
 vi.mock("@/components/app/PublishPopover.vue", () => ({
-  default: { template: "<div class='publish-popover-stub' />" },
+  default: {
+    props: ["compact"],
+    template: "<div class='publish-popover-stub' :data-compact='compact' />",
+  },
 }));
 
 async function mountBar(props: Record<string, unknown> = {}) {
@@ -84,6 +87,31 @@ describe("MobileAppBar", () => {
     await wrapper.vm.$nextTick();
 
     expect(wrapper.classes()).toContain("mobile-app-bar--hidden");
+  });
+
+  it("floats as glass pieces with the phone toolbars, not one bar", async () => {
+    const wrapper = await mountBar({ floating: true });
+    expect(wrapper.classes()).toContain("mobile-app-bar--floating");
+    expect(wrapper.find(".mobile-app-bar__left").classes()).toContain(
+      "mab-piece--lead",
+    );
+    expect(
+      wrapper.get('button[aria-label="Undo"]').classes(),
+    ).toContain("mab-piece--circle");
+    expect(
+      wrapper.get(".publish-popover-stub").attributes("data-compact"),
+    ).toBe("true");
+  });
+
+  it("keeps the single bar without the phone toolbars, and on the home screen", async () => {
+    const plain = await mountBar();
+    expect(plain.classes()).not.toContain("mobile-app-bar--floating");
+    expect(
+      plain.get(".publish-popover-stub").attributes("data-compact"),
+    ).toBe("false");
+
+    const home = await mountBar({ floating: true, mode: "home" });
+    expect(home.classes()).not.toContain("mobile-app-bar--floating");
   });
 
   it("emits open-menu when the hamburger is tapped", async () => {

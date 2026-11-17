@@ -72,8 +72,12 @@ export function createLiveGridViewContext(): GridViewContext {
 
     beginMove: controller.beginMove.bind(controller),
     commitMove: controller.commitMove.bind(controller),
+    cancelMove: controller.cancelMove.bind(controller),
     beginResize: controller.beginResize.bind(controller),
     commitResize: controller.commitResize.bind(controller),
+    cancelResize: controller.cancelResize.bind(controller),
+    beginHistoryBatch: controller.beginHistoryBatch.bind(controller),
+    commitHistoryBatch: controller.commitHistoryBatch.bind(controller),
     beginEditing: controller.beginEditing.bind(controller),
     commitEditing: controller.commitEditing.bind(controller),
     setTileContent: controller.setTileContent.bind(controller),
@@ -88,6 +92,7 @@ export function createLiveGridViewContext(): GridViewContext {
     duplicateTile: controller.duplicateTile.bind(controller),
     resizeTile: controller.resizeTile.bind(controller),
     toggleTileBorder: controller.toggleTileBorder.bind(controller),
+    setTileBorder: controller.setTileBorder.bind(controller),
     toggleLinkBackground:
       controller.toggleLinkBackground.bind(controller),
 

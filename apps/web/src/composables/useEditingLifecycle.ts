@@ -11,6 +11,7 @@ import type { Editor } from "@tiptap/vue-3";
 import type { FocusPosition } from "@tiptap/core";
 import { useGridUiStore } from "@/stores/grid/gridUi";
 import { useGridController } from "@/controllers/useGridController";
+import { isOnTileEditSurface } from "@/utils/tileEditSurface";
 
 interface EditingLifecycleOptions {
   editor: Ref<Editor | undefined>;
@@ -103,6 +104,7 @@ export function useEditingLifecycle(options: EditingLifecycleOptions) {
         setTimeout(() => {
           exitClickHandler = (event: MouseEvent) => {
             if (shouldBlockExit?.()) return;
+            if (isOnTileEditSurface(event.target)) return;
             if (
               containerRef.value &&
               !containerRef.value.contains(event.target as Node)

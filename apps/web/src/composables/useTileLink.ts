@@ -4,6 +4,7 @@ import { useGridController } from "@/controllers/useGridController";
 import { useRouter } from "vue-router";
 import { useToastStore } from "@/stores/toast";
 import { resolveInternalGridRoute } from "@/utils/InternalLink";
+import { normalizeTileLink } from "@/utils/tileLink";
 
 interface LinkableContent {
   tileLink?: string;
@@ -42,24 +43,9 @@ export const useTileLink = (
     showLinkModal.value = false;
   };
 
-  const normalizeUrl = (link: string): string => {
-    const trimmed = link.trim();
-    if (!trimmed) return "";
-    const normalized =
-      trimmed.startsWith("http://") || trimmed.startsWith("https://")
-        ? trimmed
-        : `https://${trimmed}`;
-    try {
-      new URL(normalized);
-      return normalized;
-    } catch {
-      return "";
-    }
-  };
-
   const handleAddLink = (link: string) => {
     if (!sessionStore.isOwner) return;
-    const normalized = normalizeUrl(link);
+    const normalized = normalizeTileLink(link);
     if (!normalized) {
       toastStore.addToast("Invalid URL format", "error");
       return;

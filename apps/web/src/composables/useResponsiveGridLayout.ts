@@ -99,6 +99,21 @@ export function measureViewportGridRow({
   return Math.max(0, gridRow);
 }
 
+/**
+ * The element's content-box height before any transform — the same size its
+ * ResizeObserver reports. Not `getBoundingClientRect()`: on phones the grid
+ * sits under `transform: scale()`, so that height is already scaled, and
+ * scaling it again for the wrapper would shrink the page for a frame on every
+ * engine sync (clamping the scroll, so a tile near the bottom jumps away).
+ */
+function measureContentHeight(element: HTMLElement): number {
+  const style = getComputedStyle(element);
+  const padding =
+    (parseFloat(style.paddingTop) || 0) +
+    (parseFloat(style.paddingBottom) || 0);
+  return Math.max(0, element.clientHeight - padding);
+}
+
 export function useResponsiveGridLayout({
   baseColumnCount,
   forcedBreakpoint,
@@ -247,7 +262,7 @@ export function useResponsiveGridLayout({
       }
     });
     resizeObserver?.observe(element);
-    naturalGridHeight.value = element.getBoundingClientRect().height;
+    naturalGridHeight.value = measureContentHeight(element);
   };
 
   const updateViewportWidth = () => {

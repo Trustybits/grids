@@ -69,7 +69,11 @@ export class GridSettingsController {
   updateCaption({ tileId, caption }: UpdateCaptionInput): void {
     this.runGridCommand({
       validate: (grid) =>
-        grid.tiles.some((candidate) => candidate.i === tileId),
+        grid.tiles.some(
+          (candidate) =>
+            candidate.i === tileId && (candidate.caption ?? "") !== caption,
+        ),
+      captureHistory: "Edit caption",
       mutate: (grid) => {
         const tile = grid.tiles.find(
           (candidate) => candidate.i === tileId,
@@ -224,6 +228,23 @@ export class GridSettingsController {
           (candidate) => candidate.i === id,
         );
         if (tile) tile.borderEnabled = tile.borderEnabled === false;
+      },
+    });
+  }
+
+  setTileBorder(id: string, enabled: boolean): void {
+    this.runGridCommand({
+      validate: (grid) =>
+        grid.tiles.some(
+          (candidate) =>
+            candidate.i === id && (candidate.borderEnabled !== false) !== enabled,
+        ),
+      captureHistory: enabled ? "Show tile border" : "Hide tile border",
+      mutate: (grid) => {
+        const tile = grid.tiles.find(
+          (candidate) => candidate.i === id,
+        );
+        if (tile) tile.borderEnabled = enabled;
       },
     });
   }

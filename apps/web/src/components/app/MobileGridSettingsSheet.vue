@@ -8,9 +8,10 @@
   bottom corners are squared so they line up with the (top-squared) command
   input, and the whole surface reads as one.
 
-  This component owns only the panel contents: a fixed GRID ID header, a
-  separator, and a scrollable, live-filterable list of settings (filtered by the
-  `query` the parent feeds down from the `/GRID` input). All behavior comes from
+  This component owns only the panel contents: a scrollable, live-filterable
+  list of settings (filtered by the `query` the parent feeds down from the
+  `/GRID` input), a separator, and the GRID ID at the bottom, which is never
+  filtered out. All behavior comes from
   the shared `useGridSettings` composable so this and the desktop menu never
   drift. Scope: GRID ID + copy, GRID THEME (light/dark preview cards), GRID
   BACKGROUND (image / default / color), Gravity, Default Grid, Publish Template,
@@ -18,22 +19,12 @@
   toggle — selecting a card drives the shared `isDarkMode` state.
 -->
 <template>
-  <div class="mgs-panel" role="dialog" aria-label="Grid settings">
-    <div class="mgs-header">
-      <span class="mgs-header__label">GRID ID:</span>
-      <span class="mgs-header__value">{{ gridPageId }}</span>
-      <button
-        type="button"
-        class="mgs-copy"
-        aria-label="Copy grid link"
-        @click="onCopy"
-      >
-        <ClipboardIcon :size="18" />
-      </button>
-    </div>
-
-    <Divider class="mgs-separator" />
-
+  <div
+    class="mgs-panel"
+    :class="{ 'mgs-panel--card': card }"
+    :role="card ? 'group' : 'dialog'"
+    aria-label="Grid settings"
+  >
     <div class="mgs-body">
       <template v-if="isOwner">
         <!-- GRID THEME — light/dark preview cards drive the per-grid theme
@@ -202,6 +193,21 @@
       <p v-if="!anyVisible" class="mgs-empty">No settings match “{{ query }}”.</p>
     </div>
 
+    <Divider class="mgs-separator" />
+
+    <div class="mgs-header">
+      <span class="mgs-header__label">GRID ID:</span>
+      <span class="mgs-header__value">{{ gridPageId }}</span>
+      <button
+        type="button"
+        class="mgs-copy"
+        aria-label="Copy grid link"
+        @click="onCopy"
+      >
+        <ClipboardIcon :size="18" />
+      </button>
+    </div>
+
     <input
       ref="bgImageInput"
       type="file"
@@ -243,7 +249,18 @@ import ClipboardIcon from "@/components/icons/ClipboardIcon.vue";
 import ChevronRightIcon from "@/components/icons/ChevronRightIcon.vue";
 import SpinnerIcon from "@/components/icons/SpinnerIcon.vue";
 
-const props = withDefaults(defineProps<{ query?: string }>(), { query: "" });
+const props = withDefaults(
+  defineProps<{
+    query?: string;
+    /**
+     * Inside the floating phone toolbars' Grid settings card, which supplies
+     * the surface: no sheet chrome of its own, and the tool cards' section
+     * labels, segmented buttons and rows.
+     */
+    card?: boolean;
+  }>(),
+  { query: "", card: false },
+);
 const emit = defineEmits<{
   (e: "close"): void;
   (e: "open-color"): void;
@@ -491,7 +508,7 @@ const onTransfer = () => {
 // rhythm: the sheet's height budget is tight on a 320x568 phone. Selector is
 // deliberately specific enough to beat the shorthand `margin` it overrides.
 .mgs-panel > .mgs-separator {
-  margin-top: 0;
+  margin-bottom: 0;
 }
 
 .mgs-body {
@@ -651,6 +668,95 @@ const onTransfer = () => {
   &.is-open {
     transform: rotate(90deg);
   }
+}
+
+/* ── Inside the Grid settings card (floating phone toolbars) ──────────────── */
+.mgs-panel--card {
+  height: auto;
+  max-height: none;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.mgs-panel--card .mgs-header {
+  min-height: 44px;
+  margin-top: 8px;
+  padding: 0 4px 0 12px;
+  border-radius: 10px;
+  background: var(--color-input-edit);
+}
+
+.mgs-panel--card .mgs-header__label {
+  font-family: "Inter", sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+
+.mgs-panel--card > .mgs-separator {
+  display: none;
+}
+
+/* The card scrolls; the body just lays out. */
+.mgs-panel--card .mgs-body {
+  gap: 4px;
+  padding: 0;
+  overflow: visible;
+}
+
+.mgs-panel--card .mgs-section {
+  gap: 10px;
+  padding: 14px 0 6px;
+}
+
+/* All settings' section heading. */
+.mgs-panel--card .mgs-section__label {
+  font-family: "Inter", sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* The tool cards' segmented buttons (PopoverChoices). */
+.mgs-panel--card .mgs-segment {
+  gap: 2px;
+  padding: 2px;
+  border-radius: 10px;
+  background: var(--color-tool-selected-bg);
+}
+
+.mgs-panel--card .mgs-segment__btn {
+  min-height: 46px;
+  border-radius: 8px;
+  color: var(--color-content-high);
+  font-family: "Inter", sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.mgs-panel--card .mgs-segment__btn.is-active {
+  background: var(--color-toolbar-background);
+  color: var(--color-text-primary);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+}
+
+.mgs-panel--card .mgs-row {
+  min-height: 48px;
+  border-radius: 10px;
+  font-family: "Inter", sans-serif;
+  font-size: 14px;
+}
+
+.mgs-panel--card .mgs-row--action:hover {
+  background: transparent;
+}
+
+.mgs-panel--card .mgs-row--action:active {
+  background: var(--color-input-edit);
 }
 
 .mgs-empty {

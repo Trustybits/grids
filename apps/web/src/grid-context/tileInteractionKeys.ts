@@ -66,3 +66,17 @@ export const TILE_REMOVE_REQUEST: InjectionKey<TileRemoveRequest> = Symbol(
 export const TILE_GEOMETRY_VERSION: InjectionKey<Ref<number>> = Symbol(
   "tileGeometryVersion",
 );
+
+/**
+ * Hold-to-arrange (floating phone toolbars): which tile a finger is pressing
+ * and whether the arranged tile is lifted (being dragged). Read by tiles for
+ * their press / lift feedback; the arranged tile itself lives in the UI store.
+ */
+export interface TileArrangeGesture {
+  pressingId: Readonly<Ref<string | null>>;
+  lifted: Readonly<Ref<boolean>>;
+}
+
+export const TILE_ARRANGE_GESTURE: InjectionKey<TileArrangeGesture> = Symbol(
+  "tileArrangeGesture",
+);

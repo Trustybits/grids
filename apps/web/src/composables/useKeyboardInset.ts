@@ -17,9 +17,16 @@ export const MIN_KEYBOARD_INSET = 40;
  */
 export function measureKeyboardInset(
   innerHeight: number,
-  visualViewport: Pick<VisualViewport, "height" | "offsetTop"> | null | undefined,
+  visualViewport:
+    | (Pick<VisualViewport, "height" | "offsetTop"> & { scale?: number })
+    | null
+    | undefined,
 ): number {
   if (!visualViewport) return 0;
+  // Pinch-zoom shrinks the visual viewport too, by far more than a keyboard
+  // would; read as a keyboard it threw the bottom bar up the screen. While
+  // zoomed, no keyboard is assumed.
+  if ((visualViewport.scale ?? 1) > 1.01) return 0;
   const gap = innerHeight - visualViewport.height - visualViewport.offsetTop;
   // Rounded so a fractional gap cannot end up as a `bottom: 2.99988px`.
   return gap >= MIN_KEYBOARD_INSET ? Math.round(gap) : 0;

@@ -222,6 +222,7 @@ import {
   ensureDocumentItemThumbnailOnServer,
 } from "@/composables/useDocumentThumbnail";
 import { classifyDocumentItem } from "@/utils/DocumentTypeKind";
+import { isOnTileEditSurface } from "@/utils/tileEditSurface";
 
 const ILLUSTRATION_BY_KIND: Record<string, string> = {
   pdf: "/illustrations/file-pdf.png",
@@ -262,10 +263,7 @@ export default defineComponent({
       setColorMode,
       handleBackgroundColorChange,
       handleOverlayColorChange,
-    } = useColorPicker(props.tileId, toRef(props, "content"), emit, {
-      overlayCapable: true,
-      legacyBackgroundAlsoOverlay: true,
-    });
+    } = useColorPicker(props.tileId, toRef(props, "content"), emit);
 
     const items = computed(() => props.content.items ?? []);
     const primary = computed(() => items.value[0]);
@@ -489,6 +487,7 @@ export default defineComponent({
             focusTarget === "description" ? descriptionInputRef : titleInputRef;
           targetRef.value?.focus();
           exitClickHandler = (event: MouseEvent) => {
+            if (isOnTileEditSurface(event.target)) return;
             if (
               tileRef.value &&
               !tileRef.value.contains(event.target as Node)
@@ -622,7 +621,10 @@ export default defineComponent({
     });
 
     onMounted(() => {
-      handleBackgroundColorChange(props.content.backgroundColor ?? "");
+      // No colour write here: useColorPicker already reports the fill up to
+      // the tile. Writing it back on mount saved and added an undo step every
+      // time the tile mounted (scrolling it into view, undo), and settled
+      // older tiles' overlay tint into a plain fill.
 
       // Find the tile-wrapper ancestor for the narrow-tall teleport target.
       if (tileRef.value) {
@@ -690,6 +692,10 @@ export default defineComponent({
       onTileClick,
       onShortClick,
       startEditing,
+      // The phone typing bar's Done ends editing (this tile has no onExitClick).
+      stopEditing,
+      // The phone toolbar's Preview tool opens the viewer without a tap event.
+      openPreview,
     };
   },
 });

@@ -48,7 +48,12 @@
       <span class="mcp-thumb" :style="{ left: `${(hsv.h / 360) * 100}%` }" />
     </div>
 
-    <div class="mcp-swatches" role="listbox" aria-label="Saved and preset colors">
+    <div
+      v-if="swatches.length"
+      class="mcp-swatches"
+      role="listbox"
+      aria-label="Saved and preset colors"
+    >
       <button
         v-for="color in swatches"
         :key="color"
@@ -261,7 +266,7 @@ onBeforeUnmount(() => {
   transition: transform var(--duration-fast) var(--easing-smooth);
 
   &.is-selected {
-    border: var(--border-width-lg) solid var(--color-purple);
+    border: var(--border-width-lg) solid var(--color-tool-active);
     transform: scale(1.06);
   }
 }

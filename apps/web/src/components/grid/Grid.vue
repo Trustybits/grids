@@ -2,7 +2,7 @@
 <template>
   <p v-if="gridView.isLoading">Loading layout...</p>
   <div
-    v-else-if="contractTiles.length"
+    v-else-if="contractTiles.length || gridView.canEdit"
     ref="scaleWrapperRef"
     class="grid-scale-wrapper"
     :style="scaleWrapperStyle"
@@ -15,7 +15,7 @@
     -->
     <div class="grid-canvas-container">
       <GridVisualGuide
-        v-if="gridView.canEdit && gridView.showGridGuide"
+        v-if="gridView.canEdit && gridView.showGridGuide && !hidesGuide"
         :style="guideTransformStyle"
         :cols="responsiveColNum"
         :row-height="rowHeight"
@@ -53,6 +53,16 @@
           />
         </template>
       </GriddleGrid>
+      <TileQuickMenu
+        v-if="quickMenuTile"
+        :anchor="quickMenuAnchor"
+        :label="quickMenuLabel"
+        :can-duplicate="quickMenuCanDuplicate"
+        :geometry-version="api.version.value"
+        @done="onQuickMenuDone"
+        @duplicate="onQuickMenuDuplicate"
+        @remove="onQuickMenuRemove"
+      />
     </div>
   </div>
   <p v-else class="empty-grid-message">No tiles yet</p>
@@ -94,25 +104,45 @@ import { isHiddenSuggestion } from "@/utils/TileUtils";
 import {
   TILE_ACTIVATED_ID,
   TILE_DRAGGING_ID,
+  TILE_ARRANGE_GESTURE,
   TILE_GEOMETRY_VERSION,
   TILE_REMOVE_REQUEST,
   TILE_RESIZE_REQUEST,
 } from "@/grid-context/tileInteractionKeys";
 import { useMobileExperience } from "@/composables/useMobileExperience";
+import { useMobileEditorView } from "@/composables/useMobileEditorView";
+import {
+  ARRANGE_RESIZE_HANDLES,
+  arrangeLiveSize,
+  useTouchTileGestures,
+} from "@/composables/useTouchTileGestures";
+import { useGridUiStore } from "@/stores/grid/gridUi";
+import { useGridController } from "@/controllers/useGridController";
+import { useMobileTileCommands } from "@/composables/useMobileTileCommands";
+import { getTileDefinition } from "@/registries/tileRegistry";
+import TileQuickMenu from "./TileQuickMenu.vue";
 import {
   registerTileDropTarget,
   type ViewportRect,
 } from "@/composables/useTileDropTarget";
+import { registerGridEngineBridge } from "@/composables/useGridEngineBridge";
 import type { TilePlacement } from "@/types/GridLayout";
 
 /** Engine id of the placeholder that holds a dragged-in tile type's cell. */
 const DROP_SLOT_ID = "__grid-drop-slot__";
+
+/**
+ * Rows an empty grid stands in for, matching GridVisualGuide's `minRows`: an
+ * editor's empty grid is still somewhere to drop the first tile.
+ */
+const EMPTY_GRID_ROWS = 4;
 
 export default {
   components: {
     GriddleGrid,
     GridTile,
     GridVisualGuide,
+    TileQuickMenu,
   },
   props: {
     rowHeight: {
@@ -224,17 +254,112 @@ export default {
     const activatedTileId = ref<string | null>(null);
     provide(TILE_ACTIVATED_ID, activatedTileId);
 
-    const { isTouchDevice } = useMobileExperience();
+    const { isTouchDevice, isMobileToolbar } = useMobileExperience();
+
+    // While a tile is being edited the others are dimmed and blurred, and the
+    // empty-cell guide behind them would show through as ghost squares — so
+    // it steps out too. Arranging keeps it: that is when the cells matter.
+    const { dimsOthers } = useMobileEditorView();
+    const hidesGuide = computed(
+      () => isMobileToolbar.value && dimsOthers.value,
+    );
+
+    /** Selector for a tile's Griddle element (ids are uuids; quotes escaped). */
+    const tileSelector = (id: string): string =>
+      `[data-griddle-tile="${id.replace(/["\\]/g, "\\$&")}"]`;
+
+    // ── Hold to arrange (floating toolbars) ─────────────────────────────────
+    const ui = useGridUiStore();
+    const controller = useGridController();
+    // The phone editor — on a touch phone or in a narrow pointer window —
+    // arranges with the Adjust tool, its quick menu and corner handles; the
+    // hold gesture that also starts it is touch-only.
+    const arrangeActive = computed(
+      () => isMobileToolbar.value && gridView.canEdit,
+    );
+    const arrangeGesture = useTouchTileGestures({
+      active: computed(() => arrangeActive.value && isTouchDevice.value),
+      rootRef: scaleWrapperRef,
+      isEngineDraggable: (id) => api.grid.getTile(id)?.draggable !== false,
+    });
+    provide(TILE_ARRANGE_GESTURE, {
+      pressingId: arrangeGesture.pressingId,
+      lifted: arrangeGesture.lifted,
+    });
+
+    // The quick menu shows beside the arranged tile while it rests — not
+    // while it is being dragged or resized.
+    const tileCommands = useMobileTileCommands();
+    const quickMenuTile = computed(() => {
+      const id = ui.mobileArrangeTileId;
+      if (!arrangeActive.value || !id) return null;
+      if (arrangeGesture.lifted.value || arrangeGesture.resizing.value) {
+        return null;
+      }
+      return tilesById.value.get(id) ?? null;
+    });
+    const quickMenuAnchor = computed<HTMLElement | null>(() => {
+      const id = quickMenuTile.value?.i;
+      if (!id) return null;
+      void api.version.value; // re-find the element after geometry changes
+      return (
+        scaleWrapperRef.value?.querySelector<HTMLElement>(
+          tileSelector(id),
+        ) ?? null
+      );
+    });
+    const quickMenuLabel = computed(() => {
+      const type = quickMenuTile.value?.content.type;
+      return (type && getTileDefinition(type)?.label) || "Tile";
+    });
+    const quickMenuCanDuplicate = computed(() => {
+      const type = quickMenuTile.value?.content.type;
+      return !type || !getTileDefinition(type)?.maxPerGrid;
+    });
+    // Done: finish arranging, back where it began (the grid after a hold,
+    // else the tile's toolbar).
+    const onQuickMenuDone = (): void => {
+      controller.finishMobileArrange();
+    };
+    const onQuickMenuDuplicate = (): void => {
+      const tile = quickMenuTile.value;
+      if (tile) void tileCommands.duplicate(tile);
+    };
+    const onQuickMenuRemove = (): void => {
+      const tile = quickMenuTile.value;
+      if (tile) tileCommands.remove(tile);
+    };
 
     const griddleTiles = computed(() =>
       toGriddleTiles(canonicalLayout.value, contractTiles.value, {
         editable: gridView.canEdit,
-        resolveCaps: (tile) =>
-          touchActivationCaps(
+        resolveCaps: (tile) => {
+          // Floating toolbars: being selected never unlocks a tile — only
+          // arranging does (a hold or the Arrange tool). Otherwise a scroll
+          // that starts on the selected tile would turn into a drag.
+          // With a mouse too: only the tile being adjusted moves.
+          if (arrangeActive.value) {
+            const caps = touchActivationCaps(
+              tile?.i,
+              ui.mobileArrangeTileId,
+              true,
+            );
+            // Whatever the tile, placeholders included: arranging is the
+            // one way into resizing here, and it always shows the corners.
+            return tile?.i && tile.i === ui.mobileArrangeTileId
+              ? {
+                  ...caps,
+                  resizable: true,
+                  resizeHandles: ARRANGE_RESIZE_HANDLES,
+                }
+              : caps;
+          }
+          return touchActivationCaps(
             tile?.i,
             activatedTileId.value,
             isTouchDevice.value,
-          ),
+          );
+        },
       }),
     );
 
@@ -277,10 +402,14 @@ export default {
     // content layer and grid root to zero height. Give the root an explicit CSS
     // height from Griddle's own sizing helper; its internal min-height: 100%
     // then restores the full containing block for the governed tiles.
-    const griddleContentHeight = computed(
-      () =>
-        `${gridContentSize(api.config.value, api.tiles.value).height + margin}px`,
-    );
+    const griddleContentHeight = computed(() => {
+      const height =
+        gridContentSize(api.config.value, api.tiles.value).height + margin;
+      const emptyHeight = contractTiles.value.length
+        ? 0
+        : EMPTY_GRID_ROWS * (props.rowHeight + margin) + margin;
+      return `${Math.max(height, emptyHeight)}px`;
+    });
 
     // Selection is a controlled Griddle feature. The app only supports
     // single-tile gestures and owns its hover/edit visuals, so keep Griddle's
@@ -442,7 +571,11 @@ export default {
     let gridClickCandidate: GridClickCandidate | null = null;
 
     const onGridPointerDown = (event: PointerEvent): void => {
+      arrangeGesture.onPointerDown(event);
       if (event.pointerType !== "mouse" || event.button !== 0) return;
+      // The phone editor (also in a narrow pointer window) handles its own
+      // clicks: the first selects, the next one types (Tile.vue).
+      if (isMobileToolbar.value) return;
       const target = event.target as HTMLElement | null;
       if (!target) return;
       if (
@@ -588,32 +721,120 @@ export default {
       interacting = true;
       isInteracting.value = true;
       draggingTileId.value = id;
+      arrangeGesture.onDragStart(id);
       if (gridView.canEdit) gridView.beginMove();
     };
 
-    const onDragEnd = (_id: string, committed: boolean): void => {
+    const onDragEnd = (id: string, committed: boolean): void => {
       interacting = false;
       isInteracting.value = false;
       draggingTileId.value = null;
+      arrangeGesture.onDragEnd(id);
       if (committed && gridView.canEdit) {
         gridView.setDisplayPositions(fromGriddleTiles(api.tiles.value));
         gridView.commitMove();
+      } else {
+        // A drag that changed nothing (or was cancelled) must still release
+        // its pending snapshot, or the next gesture can't take one.
+        gridView.cancelMove();
       }
       finishInteraction();
     };
 
-    const onResizeStart = (_id: string): void => {
-      interacting = true;
-      isInteracting.value = true;
-      if (gridView.canEdit) gridView.beginResize();
+    // Griddle commits a corner resize as move-then-resize. Shrinking from a
+    // left corner moves a still-full-width tile one column right, which
+    // overflows the grid and is clamped back to column 0 before the resize
+    // lands. So the previewed footprint is read off the tile element (Griddle
+    // draws the preview inline) and its position re-applied after the commit.
+    // The same reading drives the live "W×H" in the toolbar header.
+    type Footprint = { col: number; row: number; w: number; h: number };
+    type ResizeOrigin = Footprint & { left: number; top: number };
+    let resizeOrigin: ResizeOrigin | null = null;
+    let resizePreview: Footprint | null = null;
+    let resizeFrame = 0;
+
+    const readResizePreview = (
+      id: string,
+      origin: ResizeOrigin,
+    ): Footprint | null => {
+      const el = scaleWrapperRef.value?.querySelector<HTMLElement>(
+        tileSelector(id),
+      );
+      if (!el) return null;
+      const { unitWidth, unitHeight, gap = 0 } = api.config.value;
+      const pitchX = unitWidth + gap;
+      const pitchY = unitHeight + gap;
+      return {
+        col:
+          origin.col +
+          Math.round((parseFloat(el.style.left) - origin.left) / pitchX),
+        row:
+          origin.row +
+          Math.round((parseFloat(el.style.top) - origin.top) / pitchY),
+        w: Math.round((parseFloat(el.style.width) + gap) / pitchX),
+        h: Math.round((parseFloat(el.style.height) + gap) / pitchY),
+      };
     };
 
-    const onResizeEnd = (_id: string, committed: boolean): void => {
+    const followResize = (id: string): void => {
+      if (!resizeOrigin) return;
+      const preview = readResizePreview(id, resizeOrigin);
+      if (preview) {
+        resizePreview = preview;
+        arrangeLiveSize.value = { w: preview.w, h: preview.h };
+      }
+      resizeFrame = requestAnimationFrame(() => followResize(id));
+    };
+
+    const onResizeStart = (id: string): void => {
+      interacting = true;
+      isInteracting.value = true;
+      arrangeGesture.onResizeStart(id);
+      if (gridView.canEdit) gridView.beginResize();
+
+      resizePreview = null;
+      resizeOrigin = null;
+      const tile = api.grid.getTile(id);
+      const el = scaleWrapperRef.value?.querySelector<HTMLElement>(
+        tileSelector(id),
+      );
+      if (!tile || !el) return;
+      resizeOrigin = {
+        col: tile.col,
+        row: tile.row,
+        w: tile.w,
+        h: tile.h,
+        left: parseFloat(el.style.left),
+        top: parseFloat(el.style.top),
+      };
+      followResize(id);
+    };
+
+    const onResizeEnd = (id: string, committed: boolean): void => {
       interacting = false;
       isInteracting.value = false;
+      cancelAnimationFrame(resizeFrame);
+      arrangeGesture.onResizeEnd();
+      arrangeLiveSize.value = null;
+      const preview = resizePreview;
+      resizePreview = null;
+      resizeOrigin = null;
+      const settled = api.grid.getTile(id);
+      if (
+        committed &&
+        preview &&
+        settled &&
+        settled.w === preview.w &&
+        settled.h === preview.h &&
+        (settled.col !== preview.col || settled.row !== preview.row)
+      ) {
+        api.moveTile(id, { col: preview.col, row: preview.row });
+      }
       if (committed && gridView.canEdit) {
         gridView.setDisplayPositions(fromGriddleTiles(api.tiles.value));
         gridView.commitResize();
+      } else {
+        gridView.cancelResize();
       }
       finishInteraction();
     };
@@ -713,12 +934,14 @@ export default {
         const w = Math.min(size.w, cols);
         const h = size.h;
         // Over the grid, with a cell's worth of slack below the last row so a
-        // tile can be dropped onto the end.
+        // tile can be dropped onto the end. An empty grid has only one place
+        // to put it, so anywhere will do.
         const overGrid =
-          point.x >= box.left &&
-          point.x <= box.right &&
-          point.y >= box.top &&
-          point.y <= box.bottom + unit * scale;
+          contractTiles.value.length === 0 ||
+          (point.x >= box.left &&
+            point.x <= box.right &&
+            point.y >= box.top &&
+            point.y <= box.bottom + unit * scale);
         if (!overGrid) {
           closeDropSlot();
           return null;
@@ -794,8 +1017,26 @@ export default {
     };
 
     const unregisterDropTarget = registerTileDropTarget(dropTarget);
+    const unregisterEngineBridge = registerGridEngineBridge({
+      removeTiles: (tileIds) => {
+        for (const id of tileIds) removeTileThroughEngine(id);
+      },
+      resizeTile: resizeTileThroughEngine,
+      tileElement: (tileId) =>
+        scaleWrapperRef.value?.querySelector<HTMLElement>(
+          tileSelector(tileId),
+        ) ?? null,
+      gridScale: () => mobileScale.value,
+      tileRect: (tileId) => {
+        const tile = api.grid.getTile(tileId);
+        const grid = gridElement();
+        if (!tile || !grid) return null;
+        return cellToViewport(tile, grid.getBoundingClientRect());
+      },
+    });
     onUnmounted(() => {
       unregisterDropTarget();
+      unregisterEngineBridge();
       if (dropDrag.isActive()) dropDrag.cancel();
     });
 
@@ -818,6 +1059,14 @@ export default {
 
     return {
       gridView,
+      hidesGuide,
+      quickMenuTile,
+      quickMenuAnchor,
+      quickMenuLabel,
+      quickMenuCanDuplicate,
+      onQuickMenuDone,
+      onQuickMenuDuplicate,
+      onQuickMenuRemove,
       api,
       griddleContentHeight,
       griddleSelection,

@@ -20,7 +20,14 @@ export const useGridHistoryStore = defineStore("gridHistory", () => {
   const pendingEditSnapshot = shallowRef<Snapshot | null>(null);
   const pendingMoveSnapshot = shallowRef<Snapshot | null>(null);
   const pendingResizeSnapshot = shallowRef<Snapshot | null>(null);
+  /**
+   * "Before" state of an open history batch: several mutations (a popover
+   * visit, a bulk edit across tiles) that should undo as one step. While it is
+   * set, individual commands skip their own undo pushes.
+   */
+  const pendingBatchSnapshot = shallowRef<Snapshot | null>(null);
   const editingTileId = ref<string | null>(null);
+  const isBatching = computed(() => pendingBatchSnapshot.value !== null);
 
   const canUndo = computed(() => {
     void stackVersion.value;
@@ -107,6 +114,7 @@ export const useGridHistoryStore = defineStore("gridHistory", () => {
     replaceInSnapshot(pendingEditSnapshot.value);
     replaceInSnapshot(pendingMoveSnapshot.value);
     replaceInSnapshot(pendingResizeSnapshot.value);
+    replaceInSnapshot(pendingBatchSnapshot.value);
   }
 
   function setStableSnapshot(snapshot: Snapshot | null): void {
@@ -162,11 +170,24 @@ export const useGridHistoryStore = defineStore("gridHistory", () => {
     return snapshot;
   }
 
+  function beginBatch(snapshot: Snapshot | null): boolean {
+    if (pendingBatchSnapshot.value || !snapshot) return false;
+    pendingBatchSnapshot.value = snapshot;
+    return true;
+  }
+
+  function takeBatchSnapshot(): Snapshot | null {
+    const snapshot = pendingBatchSnapshot.value;
+    pendingBatchSnapshot.value = null;
+    return snapshot;
+  }
+
   function clearTransactions(): void {
     editingTileId.value = null;
     pendingEditSnapshot.value = null;
     pendingMoveSnapshot.value = null;
     pendingResizeSnapshot.value = null;
+    pendingBatchSnapshot.value = null;
   }
 
   function reset(): void {
@@ -184,6 +205,8 @@ export const useGridHistoryStore = defineStore("gridHistory", () => {
     pendingEditSnapshot,
     pendingMoveSnapshot,
     pendingResizeSnapshot,
+    pendingBatchSnapshot,
+    isBatching,
     editingTileId,
     canUndo,
     canRedo,
@@ -205,6 +228,8 @@ export const useGridHistoryStore = defineStore("gridHistory", () => {
     takeMoveSnapshot,
     beginResize,
     takeResizeSnapshot,
+    beginBatch,
+    takeBatchSnapshot,
     clearTransactions,
     reset,
   };

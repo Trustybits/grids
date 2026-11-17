@@ -195,7 +195,7 @@ onMounted(() => {
   cursor: pointer;
 
   &.is-selected {
-    border-color: var(--color-purple);
+    border-color: var(--color-tool-active);
   }
 }
 

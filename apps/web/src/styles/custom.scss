@@ -117,6 +117,64 @@ body.theme-dark {
   .griddle-tile:has([data-griddle-handle]:hover) .resize-indicator {
     opacity: 1;
   }
+
+  // ── Hold to arrange (floating phone toolbars) ───────────────────────────
+  // Griddle renders these elements, so they are styled here; Griddle itself is
+  // untouched. Holds must not raise the iOS/Android callout.
+  .griddle-tile:has(.tile-wrapper.is-arranged),
+  .griddle-tile:has(.tile-wrapper.is-pressing) {
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  // Finger-sized hit areas on all four corners of the arranged tile, centred
+  // near each outline dot. Sized in grid units: the phone grid is scaled
+  // ~0.72×, so 64px lands at ~46px on screen.
+  .griddle-tile:has(.tile-wrapper.is-arranged) [data-griddle-handle] {
+    --arrange-hit: 64px;
+    --arrange-hit-offset: calc(var(--arrange-hit) / -2 + 2px);
+    width: var(--arrange-hit) !important;
+    height: var(--arrange-hit) !important;
+    top: auto !important;
+    right: auto !important;
+    bottom: auto !important;
+    left: auto !important;
+    opacity: 0;
+    z-index: 8;
+  }
+  .griddle-tile:has(.tile-wrapper.is-arranged) [data-griddle-handle="nw"] {
+    top: var(--arrange-hit-offset) !important;
+    left: var(--arrange-hit-offset) !important;
+  }
+  .griddle-tile:has(.tile-wrapper.is-arranged) [data-griddle-handle="ne"] {
+    top: var(--arrange-hit-offset) !important;
+    right: var(--arrange-hit-offset) !important;
+  }
+  .griddle-tile:has(.tile-wrapper.is-arranged) [data-griddle-handle="sw"] {
+    bottom: var(--arrange-hit-offset) !important;
+    left: var(--arrange-hit-offset) !important;
+  }
+  .griddle-tile:has(.tile-wrapper.is-arranged) [data-griddle-handle="se"] {
+    bottom: var(--arrange-hit-offset) !important;
+    right: var(--arrange-hit-offset) !important;
+  }
+
+  // While one corner is dragged only its dot stays, so small tiles never look
+  // cluttered.
+  @each $corner in nw, ne, sw, se {
+    [data-arrange-corner="#{$corner}"]
+      .arrange-outline__handle:not(.arrange-outline__handle--#{$corner}) {
+      opacity: 0;
+    }
+  }
+
+  // Griddle dims a moving tile inline; the arranged tile stays solid and
+  // carries the wrapper's own lift shadow instead.
+  .griddle-tile.griddle-dragging:has(.tile-wrapper.is-arranged),
+  .griddle-tile.griddle-resizing:has(.tile-wrapper.is-arranged) {
+    opacity: 1 !important;
+    filter: none !important;
+  }
 }
 
 .bkg-primary { 

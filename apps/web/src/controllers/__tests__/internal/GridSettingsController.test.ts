@@ -257,6 +257,44 @@ describe("GridSettingsController", () => {
       controller.updateCaption({ tileId: "missing", caption: "new" });
       expect(scheduleSave).not.toHaveBeenCalled();
     });
+
+    it("captures history so a caption edit can be undone", () => {
+      seedGrid([makeLinkTile({ i: "t1", caption: "old" })]);
+      controller.updateCaption({ tileId: "t1", caption: "new" });
+      expect(pushUndoSnapshot).toHaveBeenCalledWith("Edit caption");
+    });
+
+    it("skips an unchanged caption (no empty undo step)", () => {
+      seedGrid([makeLinkTile({ i: "t1", caption: "same" })]);
+      controller.updateCaption({ tileId: "t1", caption: "same" });
+      expect(pushUndoSnapshot).not.toHaveBeenCalled();
+      expect(scheduleSave).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("setTileBorder", () => {
+    it("sets the border to an explicit value with history", () => {
+      const grid = seedGrid([makeLinkTile({ i: "t1", borderEnabled: true })]);
+      controller.setTileBorder("t1", false);
+      expect(grid.tiles[0]?.borderEnabled).toBe(false);
+      expect(pushUndoSnapshot).toHaveBeenCalledWith("Hide tile border");
+    });
+
+    it("reads a missing borderEnabled as on, so setting on is a no-op", () => {
+      const tile = makeLinkTile({ i: "t1" });
+      delete (tile as Partial<Tile>).borderEnabled;
+      seedGrid([tile]);
+      controller.setTileBorder("t1", true);
+      expect(pushUndoSnapshot).not.toHaveBeenCalled();
+      expect(scheduleSave).not.toHaveBeenCalled();
+    });
+
+    it("turns a hidden border back on", () => {
+      const grid = seedGrid([makeLinkTile({ i: "t1", borderEnabled: false })]);
+      controller.setTileBorder("t1", true);
+      expect(grid.tiles[0]?.borderEnabled).toBe(true);
+      expect(pushUndoSnapshot).toHaveBeenCalledWith("Show tile border");
+    });
   });
 
   describe("toggleTileBorder", () => {

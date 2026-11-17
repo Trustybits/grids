@@ -158,7 +158,7 @@ onUnmounted(() => document.removeEventListener("keydown", onKeydown));
   }
 
   &.is-active {
-    color: var(--color-figma-purple);
+    color: var(--color-tool-active);
   }
 }
 

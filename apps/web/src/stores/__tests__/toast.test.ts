@@ -115,4 +115,19 @@ describe("toast store", () => {
     expect(() => vi.advanceTimersByTime(3000)).not.toThrow();
     expect(store.toasts).toHaveLength(0);
   });
+
+  it("runs a toast's action once and dismisses it", () => {
+    const store = useToastStore();
+    const run = vi.fn();
+    const id = store.addToast("Tile deleted", "info", 5000, {
+      label: "Undo",
+      run,
+    });
+
+    store.runToastAction(id);
+    store.runToastAction(id);
+
+    expect(run).toHaveBeenCalledTimes(1);
+    expect(store.toasts).toHaveLength(0);
+  });
 });

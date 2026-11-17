@@ -60,8 +60,13 @@ export interface GridViewContext {
 
   beginMove(urlMaps?: GridHistoryUrlMaps): void;
   commitMove(urlMaps?: GridHistoryUrlMaps): void;
+  cancelMove(): void;
   beginResize(urlMaps?: GridHistoryUrlMaps): void;
   commitResize(urlMaps?: GridHistoryUrlMaps): void;
+  cancelResize(): void;
+  /** Group the next commands into one undo step; true if this opened it. */
+  beginHistoryBatch(actionLabel: string, urlMaps?: GridHistoryUrlMaps): boolean;
+  commitHistoryBatch(urlMaps?: GridHistoryUrlMaps): void;
   beginEditing(tileId: string, urlMaps?: GridHistoryUrlMaps): void;
   commitEditing(urlMaps?: GridHistoryUrlMaps): void;
   setTileContent(tileId: string, content: TileContent): void;
@@ -87,6 +92,8 @@ export interface GridViewContext {
   duplicateTile(tileId: string): string | null;
   resizeTile(tileId: string, width: number, height: number): void;
   toggleTileBorder(tileId: string): void;
+  /** Set (not flip) the border, so a bulk edit can apply one value to all. */
+  setTileBorder(tileId: string, enabled: boolean): void;
   toggleLinkBackground(tileId: string): void;
 
   setPendingFocusTileId(tileId: string | null): void;

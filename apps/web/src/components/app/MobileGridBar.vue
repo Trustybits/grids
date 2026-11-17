@@ -38,7 +38,7 @@
     <!-- Grid settings sheet — slides up from behind the pill and rests flush on
          top of the morphed `/GRID` command input. -->
     <transition name="mgb-rise">
-      <div v-if="mode === 'settings'" class="mgb-settings-panel">
+      <div v-if="mode === 'settings' && !isMobileToolbar" class="mgb-settings-panel">
         <MobileGridSettingsSheet
           :query="query"
           @close="closeSettings"
@@ -56,7 +56,12 @@
          executes) is the whole surface — no sheet rises. -->
     <transition name="mgb-rise">
       <div
-        v-if="mode === 'edit' && editTile && isMobileDevice"
+        v-if="
+          mode === 'edit' &&
+          editTile &&
+          isMobileDevice &&
+          !isMobileToolbar
+        "
         class="mgb-settings-panel"
         :class="{ 'mgb-settings-panel--format': textEditingEditor }"
       >
@@ -76,7 +81,7 @@
     <!-- Color picker sheet — same rise/flush pattern; the pill below is the
          `/HEX` command input. -->
     <transition name="mgb-rise">
-      <div v-if="mode === 'color'" class="mgb-settings-panel">
+      <div v-if="mode === 'color' && !isMobileToolbar" class="mgb-settings-panel">
         <MobileColorPicker
           v-model="colorHex"
           :swatches="swatches"
@@ -89,7 +94,7 @@
     <!-- Background image swap sheet — same rise/flush pattern; the pill below is
          the `/background` command input (paste an image URL to link). -->
     <transition name="mgb-rise">
-      <div v-if="mode === 'image'" class="mgb-settings-panel">
+      <div v-if="mode === 'image' && !isMobileToolbar" class="mgb-settings-panel">
         <MobileImageSwapSheet />
       </div>
     </transition>
@@ -130,20 +135,117 @@
       </div>
     </transition>
 
+    <!-- While a tile's toolbar is up, a dark band sits behind it (and
+         under any popover) so the bar reads cleanly over busy tiles. -->
+    <transition name="mgb-scrim">
+      <div
+        v-if="isMobileToolbar && mode === 'edit'"
+        class="mgb-scrim"
+        aria-hidden="true"
+      />
+    </transition>
+
+    <!-- A tool's popover floats 8px above the tile toolbar; the toolbar stays
+         below it with the tool selected. -->
+    <transition name="mgb-pop">
+      <MobileToolPopover
+        v-if="popoverToolId && popoverTiles.length"
+        class="mgb-popover"
+        :tiles="popoverTiles"
+        :tool-id="popoverToolId"
+      />
+    </transition>
+
+    <!-- Floating toolbars: Grid settings is a solid card above the home bar,
+         like a tool's card above the tile toolbar. The background colour and
+         image open as pages inside it. -->
+    <transition name="mgb-pop">
+      <MobileSettingsCard
+        v-if="settingsCardPage"
+        class="mgb-popover mgb-settings-card"
+        :title="settingsCardTitle"
+        :back="settingsCardPage !== 'settings'"
+        @back="settingsCardPage === 'color' ? closeColor() : closeImage()"
+        @done="closeSettings"
+      >
+        <MobileGridSettingsSheet
+          v-if="settingsCardPage === 'settings'"
+          card
+          @close="closeSettings"
+          @open-color="openColor"
+          @open-image="openImage"
+        />
+        <template v-else-if="settingsCardPage === 'color'">
+          <MobileColorPicker
+            v-model="colorHex"
+            :swatches="swatches"
+            @preview="onColorPreview"
+            @commit="onColorCommit"
+          />
+          <div class="pp-field">
+            <span class="mgb-card-hash" aria-hidden="true">#</span>
+            <input
+              ref="hexInputRef"
+              v-model="hexInput"
+              class="pp-field__input"
+              type="text"
+              inputmode="text"
+              autocapitalize="characters"
+              autocomplete="off"
+              spellcheck="false"
+              maxlength="7"
+              aria-label="Hex color value"
+              @keydown="onHexKeydown"
+              @blur="commitHexInput"
+            />
+            <button type="button" class="pp-pill" @click="saveColor">
+              Save color
+            </button>
+          </div>
+        </template>
+        <template v-else>
+          <MobileImageSwapSheet />
+          <form class="pp-field" novalidate @submit.prevent="linkImage">
+            <input
+              v-model="urlInput"
+              class="pp-field__input"
+              type="url"
+              inputmode="url"
+              autocapitalize="off"
+              autocomplete="off"
+              spellcheck="false"
+              placeholder="Paste an image URL"
+              aria-label="Background image URL"
+            />
+            <button
+              type="submit"
+              class="pp-pill pp-pill--primary"
+              :disabled="!urlInput.trim()"
+            >
+              Link
+            </button>
+          </form>
+        </template>
+      </MobileSettingsCard>
+    </transition>
+
     <MobileCommandBar
       ref="pillRef"
       class="mgb-pill"
       :class="{
         'mgb-pill--add': mode === 'add',
-        'mgb-pill--settings': mode === 'settings',
-        'mgb-pill--color': mode === 'color',
-        'mgb-pill--image': mode === 'image',
-        'mgb-pill--edit': mode === 'edit',
+        'mgb-pill--settings': mode === 'settings' && !isMobileToolbar,
+        'mgb-pill--color': mode === 'color' && !isMobileToolbar,
+        'mgb-pill--image': mode === 'image' && !isMobileToolbar,
+        'mgb-pill--edit': mode === 'edit' && !isMobileToolbar,
+        'mgb-pill--toolbar': mode === 'edit' && isMobileToolbar,
+        'mgb-pill--format': mode === 'edit' && isMobileToolbar && !!textEditingEditor,
+        'mgb-pill--glass': isMobileToolbar,
         'mgb-pill--flush': isConnected,
       }"
       :aria-label="pillAriaLabel"
     >
-      <template v-if="mode === 'default'">
+      <template v-if="mode === 'default' || settingsCardPage">
         <button
           type="button"
           class="mgb-btn"
@@ -157,6 +259,8 @@
           type="button"
           class="mgb-btn"
           aria-label="Grid settings"
+          :class="{ 'mgb-btn--selected': !!settingsCardPage }"
+          :aria-pressed="isMobileToolbar ? !!settingsCardPage : undefined"
           @click.stop="toggleSettings"
         >
           <GridSettingsIcon :size="24" />
@@ -207,6 +311,40 @@
         aria-label="Filter grid settings"
         close-label="Close grid settings"
         @close="closeSettings"
+      />
+
+      <!-- Floating toolbars: the pill itself becomes the selected tile's
+           toolbar (no `/EDIT` input, no sheet). Keyed by tile so switching
+           tiles morphs the pill to the new tile's tools. -->
+      <!-- Typing in a text tile: the whole toolbar morphs into the
+           font-styling bar (one bar, riding on the keyboard). -->
+      <!-- Multi-edit: the picks' shared tools. -->
+      <MobileMultiToolbar
+        v-else-if="mode === 'edit' && isMobileToolbar && multi.active.value"
+      />
+      <!-- Crop / pan / interact: the toolbar becomes a slim mode bar. -->
+      <MobileModeBar
+        v-else-if="mode === 'edit' && isMobileToolbar && activeToolMode"
+        :mode="activeToolMode"
+        @done="editHandle?.exitToolMode?.()"
+      />
+      <!-- Typing in a tile without formatting (profile, link, documents,
+           classic text): a plain typing bar with Done. -->
+      <MobileModeBar
+        v-else-if="mode === 'edit' && isMobileToolbar && isPlainTyping"
+        mode="edit"
+        @done="stopTyping"
+      />
+      <MobileFormatToolbar
+        v-else-if="mode === 'edit' && isMobileToolbar && textEditingEditor"
+        :editor="textEditingEditor"
+        @done="stopTyping"
+        @edit-link="(href) => editHandle?.childComponent.value?.editLink?.(href)"
+      />
+      <MobileTileToolbar
+        v-else-if="mode === 'edit' && isMobileToolbar && editTile"
+        :key="editTile.i"
+        :tile="editTile"
       />
 
       <MobileCommandInput
@@ -333,7 +471,6 @@
 <script setup lang="ts">
 import {
   computed,
-  nextTick,
   onBeforeUnmount,
   onMounted,
   proxyRefs,
@@ -350,6 +487,19 @@ import MobileTileDragGhost from "@/components/app/MobileTileDragGhost.vue";
 import MobileTileListSheet from "@/components/app/MobileTileListSheet.vue";
 import MobileGridSettingsSheet from "@/components/app/MobileGridSettingsSheet.vue";
 import MobileTileEditSheet from "@/components/app/MobileTileEditSheet.vue";
+import MobileTileToolbar from "@/components/app/mobile-editor/MobileTileToolbar.vue";
+import MobileFormatToolbar from "@/components/app/mobile-editor/MobileFormatToolbar.vue";
+import MobileToolPopover from "@/components/app/mobile-editor/MobileToolPopover.vue";
+import MobileSettingsCard from "@/components/app/mobile-editor/MobileSettingsCard.vue";
+import MobileModeBar from "@/components/app/mobile-editor/MobileModeBar.vue";
+import MobileMultiToolbar from "@/components/app/mobile-editor/MobileMultiToolbar.vue";
+import { useMobileMultiEdit } from "@/composables/useMobileMultiEdit";
+import { useMobileEditorView } from "@/composables/useMobileEditorView";
+import { useKeepEditedTileInView } from "@/composables/useKeepEditedTileInView";
+import { MOBILE_POPOVER_BODIES } from "@/components/app/mobile-editor/popovers";
+import { MOBILE_TOOLS } from "@/registries/tileToolbar/mobileTools";
+import { useGridUiStore } from "@/stores/grid/gridUi";
+import { useMorphFlip } from "@/composables/useMorphFlip";
 import DockedFormatBar from "@/components/richtext/DockedFormatBar.vue";
 import { useKeyboardInset } from "@/composables/useKeyboardInset";
 import { isRichTextContentType } from "@grids/contracts/types";
@@ -373,7 +523,10 @@ import { useGridController } from "@/controllers/useGridController";
 import { useFileUpload } from "@/composables/useFileUpload";
 import { useGridSettings } from "@/composables/useGridSettings";
 import { useGridPreview } from "@/composables/useGridPreview";
-import { useMobileTileEdit } from "@/composables/useMobileTileEdit";
+import {
+  stopTileTyping,
+  useMobileTileEdit,
+} from "@/composables/useMobileTileEdit";
 import { useMobileExperience } from "@/composables/useMobileExperience";
 import { useSavedColors } from "@/composables/useSavedColors";
 import { normalizeHex } from "@/utils/color";
@@ -453,7 +606,8 @@ const { editTileId, editTile, closeEdit, query: editQuery, handle: editHandle } 
   useMobileTileEdit();
 // The sheet is the mobile presentation of `/EDIT`; on the desktop chrome the
 // tile keeps its own toolbars and only the pill input renders.
-const { isMobileDevice, isUnifiedText } = useMobileExperience();
+const { isMobileDevice, isUnifiedText, isMobileToolbar } =
+  useMobileExperience();
 
 // The live editor of a unified text tile while its owner is typing in it.
 // The keyboard is up, so the sheet gives way to the formatting bar.
@@ -466,6 +620,80 @@ const textEditingEditor = computed(() => {
   return tileHandle.childComponent.value?.editor;
 });
 const editGridView = proxyRefs(useGridViewContext());
+
+// Typing with no format bar to show (anything but unified rich text).
+const { view: editorView } = useMobileEditorView();
+
+// Keep the tile being edited on screen above the toolbar, card or sheet.
+useKeepEditedTileInView({ enabled: isMobileToolbar, view: editorView });
+const isPlainTyping = computed(
+  () =>
+    isMobileToolbar.value &&
+    editorView.value.kind === "typing" &&
+    !textEditingEditor.value,
+);
+
+// Plain typing starting or ending swaps the pill's content too.
+watch(isPlainTyping, () => void morph(undefined, morphOptions(true)), {
+  flush: "pre",
+});
+
+// The tool mode the selected tile is in (crop / pan / interact), if any.
+const activeToolMode = computed(() =>
+  isMobileToolbar.value ? (editHandle.value?.toolMode?.value ?? null) : null,
+);
+
+// Entering or leaving a mode swaps the pill's content: morph it.
+watch(
+  activeToolMode,
+  () => void morph(undefined, morphOptions(true)),
+  { flush: "pre" },
+);
+
+const gridUi = useGridUiStore();
+
+// All settings growing out of (or back into) the toolbar: morph the pill.
+watch(
+  () => isMobileToolbar.value && gridUi.mobileSheetExpanded,
+  () => void morph(undefined, morphOptions()),
+  { flush: "pre" },
+);
+
+// Multi-edit: the picked tiles and their shared tools.
+const multi = useMobileMultiEdit();
+
+// Entering or leaving multi-edit swaps the toolbar for the multi one.
+watch(
+  () => isMobileToolbar.value && multi.active.value,
+  () => void morph(undefined, morphOptions(true)),
+  { flush: "pre" },
+);
+
+/** What an open popover edits: every pick in multi-edit, else the tile. */
+const popoverTiles = computed(() => {
+  if (multi.active.value) return multi.tiles.value;
+  return editTile.value ? [editTile.value] : [];
+});
+
+// The open tool's popover, when it is one that has a card. Typing replaces the
+// toolbar with the format bar, so no popover shows over it.
+const popoverToolId = computed(() => {
+  const id = gridUi.mobileOpenToolId;
+  if (!isMobileToolbar.value || mode.value !== "edit") return null;
+  if (!id || textEditingEditor.value || activeToolMode.value) return null;
+  if (isPlainTyping.value) return null;
+  const tool = MOBILE_TOOLS[id as keyof typeof MOBILE_TOOLS];
+  if (tool?.kind !== "popover" || !MOBILE_POPOVER_BODIES[tool.id]) return null;
+  return tool.id;
+});
+
+// Starting to type closes any popover (one layer at a time).
+watch(
+  () => !!textEditingEditor.value,
+  (typing) => {
+    if (typing && gridUi.mobileOpenToolId) gridController.setMobileOpenTool(null);
+  },
+);
 
 // Enter in the `/EDIT` input executes the first control matching the typed
 // filter — the same registry rows the sheet renders, so desktop (where no
@@ -552,12 +780,29 @@ const viewMode = ref<"carousel" | "list">("carousel");
 // sub-sheets, plus the Add-a-Tile *list* view (the carousel floats with a gap).
 const isConnected = computed(
   () =>
-    mode.value === "settings" ||
-    mode.value === "color" ||
-    mode.value === "image" ||
-    mode.value === "edit" ||
+    ((mode.value === "settings" ||
+      mode.value === "color" ||
+      mode.value === "image") &&
+      !isMobileToolbar.value) ||
+    (mode.value === "edit" && !isMobileToolbar.value) ||
     (mode.value === "add" && viewMode.value === "list"),
 );
+
+// Floating toolbars: Grid settings (and its colour / image pages) is a card
+// above the home bar rather than a sheet on a `/GRID` input.
+const SETTINGS_PAGES = ["settings", "color", "image"] as const;
+type SettingsPage = (typeof SETTINGS_PAGES)[number];
+const settingsCardPage = computed<SettingsPage | null>(() =>
+  isMobileToolbar.value &&
+  (SETTINGS_PAGES as readonly string[]).includes(mode.value)
+    ? (mode.value as SettingsPage)
+    : null,
+);
+const settingsCardTitle = computed(() => {
+  if (settingsCardPage.value === "color") return "Background color";
+  if (settingsCardPage.value === "image") return "Background image";
+  return "Grid settings";
+});
 
 // ── Color (`/HEX`) mode state ────────────────────────────────────────────────
 // `colorHex` is the canonical working color (#RRGGBB) shared with the picker;
@@ -629,6 +874,8 @@ const chipLabel = computed(() =>
 );
 
 const pillAriaLabel = computed(() => {
+  // With the settings card open the pill is still the home bar.
+  if (settingsCardPage.value) return "Grid commands";
   switch (mode.value) {
     case "add":
       return "Add a tile";
@@ -646,36 +893,72 @@ const pillAriaLabel = computed(() => {
 });
 
 // ── Grow the pill (FLIP) instead of fading it out/in ─────────────────────────
-// The shell stays mounted; only its width animates between the measured
-// default width and the (wider) add-mode width so it reads as "growing".
-const animatePillWidth = async () => {
-  const el = pillRef.value?.$el as HTMLElement | undefined;
-  if (!el) return;
+// The shell stays mounted; its box animates from the old content's size to the
+// new one's, so it reads as one surface growing. The floating tile toolbar
+// morphs snappily (height and radius too); the command modes keep their
+// gentler grow.
+const pillEl = computed(
+  () => (pillRef.value?.$el as HTMLElement | undefined) ?? null,
+);
+const { morph } = useMorphFlip(pillEl);
+// The floating toolbars spring; with `crossfade` the old content also fades
+// out as the new fades in (used where the content really changes — not when
+// All settings grows, or between two tiles with the same tools, where most
+// of it stays put and fading would only make it flicker).
+const morphOptions = (crossfade = false) =>
+  isMobileToolbar.value
+    ? { spring: true, crossfade }
+    : { duration: "var(--duration-slow)", easing: "var(--easing-gentle)" };
 
-  const start = el.getBoundingClientRect().width;
-  await nextTick(); // the swapped-in content is now laid out
-  el.style.width = ""; // let CSS / content decide the target width
-  const end = el.getBoundingClientRect().width;
-  if (Math.abs(start - end) < 1) return;
+// The pill's previous box is measured synchronously when the source changes
+// (`flush: "pre"` runs before the DOM updates), then animated once it has.
+// The settings card's pages sit above an unchanged home bar: nothing in the
+// pill changes, so no cross-fade (it would only flicker).
+const HOME_BAR_MODES: ReadonlySet<string> = new Set([
+  "default",
+  "settings",
+  "color",
+  "image",
+]);
+watch(
+  mode,
+  async (next, previous) => {
+    const sameBar =
+      isMobileToolbar.value &&
+      HOME_BAR_MODES.has(next) &&
+      HOME_BAR_MODES.has(previous);
+    await morph(undefined, morphOptions(!sameBar));
+    if (mode.value === "add") cmdRef.value?.focus();
+  },
+  { flush: "pre" },
+);
 
-  el.style.width = `${start}px`;
-  void el.offsetWidth; // force reflow so the next change transitions
-  el.style.transition = "width var(--duration-slow) var(--easing-gentle)";
-  el.style.width = `${end}px`;
+// Done on the format or typing bar: stop typing (the tile's own exit, as a
+// tap outside would) and drop the keyboard. The pill morphs back to the tile
+// toolbar.
+const stopTyping = () => stopTileTyping(editHandle.value);
 
-  const cleanup = (event: TransitionEvent) => {
-    if (event.propertyName !== "width") return;
-    el.style.transition = "";
-    el.style.width = "";
-    el.removeEventListener("transitionend", cleanup);
-  };
-  el.addEventListener("transitionend", cleanup);
-};
+// Typing starting or ending swaps the pill's content: morph it.
+watch(
+  () => isMobileToolbar.value && !!textEditingEditor.value,
+  () => void morph(undefined, morphOptions(true)),
+  { flush: "pre" },
+);
 
-watch(mode, async () => {
-  await animatePillWidth();
-  if (mode.value === "add") cmdRef.value?.focus();
-});
+// Switching tiles keeps `edit` mode but swaps the tools: morph that too,
+// cross-fading only when the tools change (a different type of tile).
+watch(
+  () =>
+    mode.value === "edit"
+      ? { id: editTileId.value, type: editTile.value?.content.type }
+      : null,
+  (next, previous) => {
+    if (!next?.id || !previous?.id || next.id === previous.id) return;
+    if (!isMobileToolbar.value) return;
+    void morph(undefined, morphOptions(next.type !== previous.type));
+  },
+  { flush: "pre" },
+);
 
 // Entering preview collapses the pill back to its resting state. The bar slides
 // out of view either way, but an open sheet would otherwise still be open when
@@ -687,10 +970,14 @@ watch(isPreviewActive, (previewing) => {
 // Activating a tile takes over the pill; deactivating it hands the pill back.
 // Only `edit` is cleared here, so a tile going away cannot close a `/TILE` or
 // `/GRID` surface the user opened afterwards.
-watch(editTileId, (tileId) => {
-  if (tileId) mode.value = "edit";
-  else if (mode.value === "edit") mode.value = "default";
-});
+// Multi-edit keeps the pill too, even once its first pick is gone.
+watch(
+  () => !!editTileId.value || multi.active.value,
+  (editing) => {
+    if (editing) mode.value = "edit";
+    else if (mode.value === "edit") mode.value = "default";
+  },
+);
 
 // Quick command: while nothing is pinned, typing a command-type name followed
 // by a space (e.g. "map japan") pins that type — the same as tapping its card —
@@ -716,7 +1003,7 @@ const closeSettings = () => {
 };
 
 const toggleSettings = () => {
-  if (mode.value === "settings") closeSettings();
+  if (mode.value === "settings" || settingsCardPage.value) closeSettings();
   else openSettings();
 };
 
@@ -1038,8 +1325,8 @@ const onLiftEnd = (point: CarouselLiftPoint, cancelled: boolean) => {
 
   const { placement, hadTarget } = dropCarry();
   if (!placement) {
-    // An empty grid renders nothing to aim at, so a drop anywhere above the
-    // bar there is simply an add, placed as a tap would place it.
+    // No grid is mounted to aim at (it is still loading), so a drop anywhere
+    // above the bar is simply an add, placed as a tap would place it.
     if (!hadTarget && point.y < (pillRect()?.top ?? window.innerHeight)) {
       completeDrop();
       onSelectType(descriptor.id);
@@ -1052,9 +1339,9 @@ const onLiftEnd = (point: CarouselLiftPoint, cancelled: boolean) => {
   gridController.reserveTilePlacement(placement);
 
   // A dropped card becomes its tile immediately — Link / Embed / Image as a
-  // fill-in placeholder, Map at the current location — created now, while the
-  // grid is still holding the cell, and shown when the card has settled into
-  // it and the grid lets go.
+  // fill-in placeholder (Link and Embed then ask for their URL), Map at the
+  // current location — created now, while the grid is still holding the cell,
+  // and shown when the card has settled into it and the grid lets go.
   if (descriptor.id !== "document") {
     if (!createDroppedTile(descriptor.id)) {
       flyHome();
@@ -1140,16 +1427,37 @@ const handleKeydown = (event: KeyboardEvent) => {
   else if (mode.value === "settings") closeSettings();
   else if (mode.value === "color") closeColor();
   else if (mode.value === "image") closeImage();
-  else if (mode.value === "edit") closeEdit();
+  // The floating toolbars peel one layer per Escape (the editor lifecycle).
+  else if (mode.value === "edit" && !isMobileToolbar.value) closeEdit();
+};
+
+// The pill's height from the bottom edge, for chrome that must clear it
+// (toasts, the quick menu, scrolling a tile above the toolbar).
+let pillResize: ResizeObserver | null = null;
+const publishBottomChrome = () => {
+  const el = pillEl.value;
+  if (!el) return;
+  const rect = el.getBoundingClientRect();
+  document.documentElement.style.setProperty(
+    "--mobile-bottom-chrome-h",
+    `${Math.max(0, window.innerHeight - rect.top)}px`,
+  );
 };
 
 onMounted(() => {
   document.addEventListener("pointerdown", handlePointerDown);
   document.addEventListener("keydown", handleKeydown);
+  if (typeof ResizeObserver !== "undefined" && pillEl.value) {
+    pillResize = new ResizeObserver(publishBottomChrome);
+    pillResize.observe(pillEl.value);
+  }
+  publishBottomChrome();
 });
 onBeforeUnmount(() => {
   document.removeEventListener("pointerdown", handlePointerDown);
   document.removeEventListener("keydown", handleKeydown);
+  pillResize?.disconnect();
+  document.documentElement.style.removeProperty("--mobile-bottom-chrome-h");
 });
 </script>
 
@@ -1279,6 +1587,137 @@ onBeforeUnmount(() => {
     flex: 1 1 auto;
     min-width: 0;
     width: 100%;
+  }
+}
+
+// ── Floating tile toolbar (`editor-mobile-toolbar`) ─────────────────────────
+// Figma "Toolbar": cheap glass, 24px corners, 46px header over the tools row.
+// The pill is the same element in every mode, so these only restyle it; the
+// FLIP morph animates the box between them.
+.mgb-pill.mgb-pill--glass {
+  background-color: var(--color-glass-bar);
+  backdrop-filter: blur(20px) saturate(1.4);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  border-color: var(--color-stroke);
+  box-shadow:
+    0 -6px 24px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.mgb-pill.mgb-pill--toolbar {
+  width: var(--mgb-width);
+  padding: 0;
+  border-radius: var(--radius-lg);
+
+  :deep(.mobile-command-bar__group) {
+    display: flex;
+    flex: 1 1 auto;
+    min-width: 0;
+    width: 100%;
+  }
+}
+
+// The band behind the floating toolbar: the page colour, nearly opaque, with a
+// small blur, from just above the bar down past the screen edge. A soft top
+// edge keeps it from reading as a hard box.
+.mgb-scrim {
+  position: absolute;
+  top: calc(-1 * var(--spacing-lg));
+  bottom: -64px;
+  left: 0;
+  right: 0;
+  z-index: 0;
+  background: color-mix(in srgb, var(--color-content-background) 90%, transparent);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 var(--spacing-lg));
+  mask-image: linear-gradient(to bottom, transparent 0, #000 var(--spacing-lg));
+}
+
+// Less transparency (the phone asks for it, or it is a low-end phone — the
+// same switch that turns the tile blur into dim-only): the band and the
+// toolbar go solid, with no blur.
+:global(.no-focus-blur) .mgb-scrim {
+  background: var(--color-content-background);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+:global(.no-focus-blur) .mgb-pill.mgb-pill--glass {
+  background-color: var(--color-toolbar-background);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+// Grid settings open as a card: the Settings command reads as selected, like
+// a tool whose card is open.
+.mgb-btn.mgb-btn--selected {
+  background: var(--color-tool-selected-bg);
+  color: var(--color-tool-active);
+}
+
+// The colour and image pages bring their own sheet chrome; the card is the
+// surface now.
+.mgb-settings-card :deep(.mcp-panel),
+.mgb-settings-card :deep(.mis-panel) {
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.mgb-card-hash {
+  color: var(--color-content-low);
+  font-family: "Inter", sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.mgb-scrim-enter-active,
+.mgb-scrim-leave-active {
+  transition: opacity var(--duration-morph) ease;
+}
+
+.mgb-scrim-enter-from,
+.mgb-scrim-leave-to {
+  opacity: 0;
+}
+
+// The popover floats above the toolbar, out of the column so it never moves
+// the pill, at the toolbar's width.
+.mgb-popover {
+  position: absolute;
+  bottom: calc(100% + var(--spacing-sm));
+  left: 0;
+  right: 0;
+  z-index: 2;
+  width: var(--mgb-width);
+  margin: 0 auto;
+}
+
+.mgb-pop-enter-active {
+  transition:
+    opacity 180ms ease-out,
+    transform 180ms var(--easing-snap);
+}
+
+.mgb-pop-leave-active {
+  transition:
+    opacity 120ms ease-in,
+    transform 120ms ease-in;
+}
+
+.mgb-pop-enter-from,
+.mgb-pop-leave-to {
+  opacity: 0;
+  transform: translateY(8px) scale(0.96);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mgb-pop-enter-from,
+  .mgb-pop-leave-to {
+    transform: none;
   }
 }
 

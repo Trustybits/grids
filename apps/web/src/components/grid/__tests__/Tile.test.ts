@@ -52,9 +52,14 @@ vi.mock("@/utils/TileUtils", async () => {
   };
 });
 
+const tileDef = vi.hoisted(() => ({
+  editMode: undefined as string | undefined,
+}));
+
 vi.mock("@/registries/tileRegistry", () => ({
   getTileDefinition: () => ({
     capabilities: {},
+    editMode: tileDef.editMode,
   }),
 }));
 
@@ -74,6 +79,7 @@ vi.mock("@/composables/useTileInput", () => ({
 const mobile = vi.hoisted(() => ({
   isMobile2: false,
   isDesktop2: false,
+  isMobileToolbar: false,
   openEdit: vi.fn(),
   closeEdit: vi.fn(),
 }));
@@ -85,6 +91,7 @@ vi.mock("@/composables/useMobileExperience", async () => {
       isMobile2: computed(() => mobile.isMobile2),
       isDesktop2: computed(() => mobile.isDesktop2),
       chromeActive: computed(() => mobile.isMobile2 || mobile.isDesktop2),
+      isMobileToolbar: computed(() => mobile.isMobileToolbar ?? false),
     }),
   };
 });
@@ -97,6 +104,8 @@ vi.mock("@/composables/useMobileTileEdit", () => ({
     openEdit: mobile.openEdit,
     closeEdit: mobile.closeEdit,
     isEditTarget: (tileId: string) => editTileId.value === tileId,
+    editTile: ref(null),
+    handle: ref(null),
   }),
 }));
 
@@ -683,6 +692,144 @@ describe("GridTile desktop chrome (/EDIT without a sheet)", () => {
     await clickTile(wrapper, { x: 50, y: 50 });
     expect(mobile.openEdit).not.toHaveBeenCalled();
 
+    wrapper.unmount();
+  });
+});
+
+describe("GridTile floating toolbars (tap to select)", () => {
+  const LAYOUT: GridLayoutItem = { i: "tile-1", x: 0, y: 0, w: 2, h: 2 };
+
+  /** A touch on the tile wrapper with a position, as Tile.vue reads it. */
+  const touchEvent = (type: string, x = 10, y = 10) => {
+    const event = new Event(type, { bubbles: true, cancelable: true });
+    const point = [{ clientX: x, clientY: y }];
+    Object.defineProperty(event, "touches", {
+      value: type === "touchend" ? [] : point,
+    });
+    return event;
+  };
+
+  const press = async (
+    wrapper: Awaited<ReturnType<typeof mountGridTile>>["wrapper"],
+    { holdMs = 0, moveTo }: { holdMs?: number; moveTo?: [number, number] } = {},
+  ) => {
+    const el = wrapper.find(".tile-wrapper").element;
+    el.dispatchEvent(touchEvent("touchstart"));
+    if (moveTo) el.dispatchEvent(touchEvent("touchmove", ...moveTo));
+    if (holdMs) vi.advanceTimersByTime(holdMs);
+    const end = touchEvent("touchend");
+    el.dispatchEvent(end);
+    await flushPromises();
+    return end;
+  };
+
+  const isActivated = (
+    wrapper: Awaited<ReturnType<typeof mountGridTile>>["wrapper"],
+  ) => (wrapper.vm as unknown as { isActivated: boolean }).isActivated;
+
+  beforeEach(() => {
+    mobile.isMobile2 = true;
+    mobile.isMobileToolbar = true;
+    mobile.openEdit.mockReset();
+    editTileId.value = null;
+    tileDef.editMode = undefined;
+    contentHooks.onShortClick.mockReset();
+    // A touch-primary phone.
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn(() => ({
+        matches: true,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      })),
+    );
+    vi.useFakeTimers({ toFake: ["Date"] });
+  });
+
+  afterEach(() => {
+    mobile.isMobile2 = false;
+    mobile.isMobileToolbar = false;
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  it("selects on a quick tap, and that tap reaches nothing inside", async () => {
+    const store = makeStore(makeTile());
+    store.canEdit = true;
+    const { wrapper } = await mountGridTile(store, LAYOUT);
+
+    const end = await press(wrapper);
+
+    expect(isActivated(wrapper)).toBe(true);
+    expect(mobile.openEdit).toHaveBeenCalledTimes(1);
+    expect(end.defaultPrevented).toBe(true);
+    expect(contentHooks.onShortClick).not.toHaveBeenCalled();
+
+    wrapper.unmount();
+  });
+
+  it("never selects on a swipe that starts on the tile", async () => {
+    const store = makeStore(makeTile());
+    store.canEdit = true;
+    const { wrapper } = await mountGridTile(store, LAYOUT);
+
+    await press(wrapper, { moveTo: [10, 80] });
+
+    expect(isActivated(wrapper)).toBe(false);
+    wrapper.unmount();
+  });
+
+  it("leaves a hold for move/resize instead of selecting", async () => {
+    const store = makeStore(makeTile());
+    store.canEdit = true;
+    const { wrapper } = await mountGridTile(store, LAYOUT);
+
+    await press(wrapper, { holdMs: 500 });
+
+    expect(isActivated(wrapper)).toBe(false);
+    wrapper.unmount();
+  });
+
+  it("a second tap only starts typing on rich-text tiles", async () => {
+    const store = makeStore(makeTile());
+    store.canEdit = true;
+    const { wrapper } = await mountGridTile(store, LAYOUT);
+
+    await press(wrapper);
+    await press(wrapper);
+    // A link card's own tap action (open, preview…) is a tool now.
+    expect(contentHooks.onShortClick).not.toHaveBeenCalled();
+
+    tileDef.editMode = "richtext";
+    await press(wrapper);
+    expect(contentHooks.onShortClick).toHaveBeenCalledTimes(1);
+
+    wrapper.unmount();
+  });
+
+  it("activates when selected from outside (a duplicate's copy)", async () => {
+    const store = makeStore(makeTile());
+    store.canEdit = true;
+    const { wrapper } = await mountGridTile(store, LAYOUT);
+
+    editTileId.value = "tile-1";
+    await flushPromises();
+
+    expect(isActivated(wrapper)).toBe(true);
+    expect(mobile.openEdit).toHaveBeenCalledWith("tile-1", expect.any(Object));
+    wrapper.unmount();
+  });
+
+  it("keeps today's taps for visitors", async () => {
+    const store = makeStore(makeTile());
+    store.canEdit = false;
+    const { wrapper } = await mountGridTile(store, LAYOUT);
+
+    const el = wrapper.find(".tile-wrapper").element;
+    el.dispatchEvent(touchEvent("touchstart"));
+    await flushPromises();
+    // The old model activates on the first touch.
+    expect(isActivated(wrapper)).toBe(true);
     wrapper.unmount();
   });
 });

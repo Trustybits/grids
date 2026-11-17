@@ -120,6 +120,30 @@ describe("MobileGridSettingsSheet", () => {
     gsHolder.pendingTransfer = undefined;
   });
 
+  it("drops its own sheet chrome inside the Grid settings card", () => {
+    const sheet = mountSheet().get(".mgs-panel");
+    expect(sheet.classes()).not.toContain("mgs-panel--card");
+    expect(sheet.attributes("role")).toBe("dialog");
+
+    const inCard = mount(MobileGridSettingsSheet, {
+      props: { card: true },
+      global: {
+        stubs: {
+          Toggle: ToggleStub,
+          PromptModal: true,
+          TransferGridModal: true,
+          ClipboardIcon: true,
+          ChevronRightIcon: true,
+          SpinnerIcon: true,
+        },
+      },
+    });
+    const panel = inCard.get(".mgs-panel");
+    expect(panel.classes()).toContain("mgs-panel--card");
+    // The card is the dialog; the sheet is a group inside it.
+    expect(panel.attributes("role")).toBe("group");
+  });
+
   it("renders the GRID ID header and the core settings rows", () => {
     const wrapper = mountSheet();
     expect(wrapper.find(".mgs-header").text()).toContain("grid-1");

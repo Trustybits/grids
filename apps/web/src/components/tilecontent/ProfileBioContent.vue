@@ -36,9 +36,24 @@
             <div
               v-else
               class="avatar-placeholder"
+              :class="{
+                'avatar-placeholder--shaped': !isCompactProfileLayout,
+                'avatar-placeholder--polygon':
+                  effectiveAvatarShape === 'polygon',
+              }"
               @mouseenter="placeholderHovered = true"
               @mouseleave="placeholderHovered = false"
             >
+              <!-- A polygon clips the media box, which would cut a CSS border
+                   off at the sides: the outline is the clip path itself. Only
+                   its inner half shows, so it draws at twice the width. -->
+              <svg
+                v-if="effectiveAvatarShape === 'polygon'"
+                class="avatar-placeholder-outline"
+                aria-hidden="true"
+              >
+                <path class="polygon-clip-path" :d="polygonPath" />
+              </svg>
               <span class="avatar-placeholder-label">Add photo</span>
               <div
                 v-if="!isCompactProfileLayout"
@@ -2096,6 +2111,27 @@ export default defineComponent({
   height: 100%;
   overflow: hidden;
   box-sizing: border-box;
+}
+
+/* The empty outline previews the shape the photo will take. */
+.avatar-placeholder--shaped {
+  border-radius: inherit;
+}
+
+.avatar-placeholder--polygon {
+  border: none;
+}
+
+.avatar-placeholder-outline {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke: var(--color-tile-stroke);
+  stroke-width: 4;
+  stroke-dasharray: 6 5;
+  pointer-events: none;
 }
 
 .avatar-placeholder-label {

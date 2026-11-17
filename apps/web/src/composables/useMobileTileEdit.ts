@@ -24,6 +24,7 @@
 
 import { computed, ref, shallowRef, type Ref } from "vue";
 import type { TileChildComponent } from "@/types/Tile";
+import type { TileToolMode } from "@/composables/useTileToolModes";
 import { useGridSessionStore } from "@/stores/grid/gridSession";
 import { useGridUiStore } from "@/stores/grid/gridUi";
 import { useGridController } from "@/controllers/useGridController";
@@ -40,12 +41,20 @@ export interface MobileTileEditHandle {
   resizeTile: (tileId: string, width: number, height: number) => void;
   /** Runs the tile's exit animation, then removes it. */
   remove: () => void;
+  /** Crop / pan / interact, when the tile is in one (phone toolbar). */
+  toolMode?: Readonly<Ref<TileToolMode | null>>;
+  enterToolMode?: (mode: TileToolMode) => void;
+  exitToolMode?: () => void;
 }
 
 const _query = ref("");
 // Shallow: the handle is a bag of refs the tile already owns. A deep ref would
 // unwrap them, which both loses the reactive link and changes the type.
 const _handle = shallowRef<MobileTileEditHandle | null>(null);
+// Which tile registered the handle. The selection can move without a tap (a
+// duplicate's copy is selected before it mounts), and acting on the previous
+// tile's handle would edit — or delete — the wrong tile.
+const _handleTileId = ref<string | null>(null);
 
 export function useMobileTileEdit() {
   const sessionStore = useGridSessionStore();
@@ -71,12 +80,14 @@ export function useMobileTileEdit() {
   const openEdit = (tileId: string, handle: MobileTileEditHandle) => {
     _query.value = "";
     _handle.value = handle;
+    _handleTileId.value = tileId;
     controller.setMobileEditTile(tileId);
   };
 
   const closeEdit = () => {
     _query.value = "";
     _handle.value = null;
+    _handleTileId.value = null;
     controller.setMobileEditTile(null);
   };
 
@@ -86,7 +97,42 @@ export function useMobileTileEdit() {
     isEditTarget,
     openEdit,
     closeEdit,
-    handle: computed(() => _handle.value),
+    // Only the selected tile's own handle; null until it has registered.
+    handle: computed(() =>
+      _handleTileId.value === editTileId.value ? _handle.value : null,
+    ),
     query: _query,
   };
+}
+
+/** What starting and stopping typing needs from a tile, beyond the base. */
+type TypingChild = TileChildComponent & {
+  startEditing?: (focus?: "title") => void;
+  stopEditing?: () => void;
+};
+
+/**
+ * Start typing in the selected tile, as its Edit tool: the field tiles (link,
+ * documents) open on their title, a profile on its name. Rich-text tiles start
+ * with a second tap on the text itself.
+ */
+export function startTileTyping(handle: MobileTileEditHandle | null): void {
+  const child = handle?.childComponent.value as TypingChild | null | undefined;
+  if (!child) return;
+  if (child.startEditing) child.startEditing("title");
+  else child.onShortClick?.(new MouseEvent("click"));
+}
+
+/**
+ * Stop typing in the selected tile — the typing bar's Done, or an empty-space
+ * tap. Each tile's own exit saves and ends its edit session; the keyboard
+ * goes down with the focus.
+ */
+export function stopTileTyping(handle: MobileTileEditHandle | null): void {
+  const child = handle?.childComponent.value as TypingChild | null | undefined;
+  if (!child) return;
+  child.editor?.commands.blur();
+  if (child.onExitClick) child.onExitClick();
+  else child.stopEditing?.();
+  (document.activeElement as HTMLElement | null)?.blur?.();
 }

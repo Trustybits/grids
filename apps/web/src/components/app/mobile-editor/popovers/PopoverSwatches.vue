@@ -25,7 +25,7 @@
 <template>
   <div ref="rootRef" class="pps">
     <div v-if="!customOpen" class="pps__bar">
-      <div class="pps__row" role="listbox" :aria-label="label">
+      <div ref="rowRef" class="pps__row" role="listbox" :aria-label="label">
         <button
           v-if="lead"
           type="button"
@@ -42,18 +42,8 @@
           <NoFillIcon v-if="lead.icon === 'no-fill'" :size="24" />
           <template v-else>{{ lead.label }}</template>
         </button>
-        <button
-          v-for="swatch in swatches"
-          :key="swatch.value"
-          type="button"
-          class="pps__swatch"
-          role="option"
-          :class="{ 'is-current': modelValue === swatch.value }"
-          :aria-selected="modelValue === swatch.value"
-          :aria-label="swatch.label"
-          :style="{ background: swatch.value }"
-          @click="$emit('pick', swatch.value)"
-        />
+        <!-- Recent custom colours, newest first, ahead of the presets so
+             they're in view without scrolling. -->
         <button
           v-for="color in savedColors"
           :key="`saved-${color}`"
@@ -65,6 +55,18 @@
           :aria-label="`Saved color ${color}`"
           :style="{ background: color }"
           @click="$emit('pick', color)"
+        />
+        <button
+          v-for="swatch in swatches"
+          :key="swatch.value"
+          type="button"
+          class="pps__swatch"
+          role="option"
+          :class="{ 'is-current': modelValue === swatch.value }"
+          :aria-selected="modelValue === swatch.value"
+          :aria-label="swatch.label"
+          :style="{ background: swatch.value }"
+          @click="$emit('pick', swatch.value)"
         />
       </div>
       <button
@@ -133,7 +135,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import MobileColorPicker from "@/components/app/MobileColorPicker.vue";
 import NoFillIcon from "@/components/icons/NoFillIcon.vue";
 import EyeDropperIcon from "@/components/icons/EyeDropperIcon.vue";
@@ -161,7 +163,25 @@ const props = withDefaults(
 const emit = defineEmits<{ pick: [value: string] }>();
 
 const rootRef = ref<HTMLElement | null>(null);
+const rowRef = ref<HTMLElement | null>(null);
 const hexInputRef = ref<HTMLInputElement | null>(null);
+
+/**
+ * Scroll the row (only the row — never the page) so the applied swatch is in
+ * view, e.g. Pink or a saved colour that sits past the phone's width.
+ */
+const revealCurrentSwatch = () => {
+  const row = rowRef.value;
+  const current = row?.querySelector<HTMLElement>(".is-current");
+  if (!row || !current) return;
+  const left = current.offsetLeft - row.offsetLeft;
+  const right = left + current.offsetWidth;
+  if (left < row.scrollLeft) {
+    row.scrollLeft = left - 8;
+  } else if (right > row.scrollLeft + row.clientWidth) {
+    row.scrollLeft = right - row.clientWidth + 8;
+  }
+};
 
 const {
   savedColors,
@@ -274,6 +294,7 @@ const openCustom = () => {
 const closeCustom = () => {
   savePendingCustom();
   customOpen.value = false;
+  void nextTick(revealCurrentSwatch);
 };
 
 // --- Eyedropper -------------------------------------------------------------
@@ -329,9 +350,11 @@ const onHexBlur = () => {
   hexDraft.value = resolvedHex().slice(1);
 };
 
-onMounted(() => {
+onMounted(async () => {
   syncFromValue();
-  void loadSavedColors();
+  await loadSavedColors();
+  await nextTick();
+  revealCurrentSwatch();
 });
 
 // Closing the popover counts as settling on the colour.

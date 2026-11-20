@@ -148,7 +148,7 @@ import NoFillIcon from "@/components/icons/NoFillIcon.vue";
 import EyeDropperIcon from "@/components/icons/EyeDropperIcon.vue";
 import ChevronLeftIcon from "@/components/icons/ChevronLeftIcon.vue";
 import { useSavedColors } from "@/composables/useSavedColors";
-import { normalizeHex } from "@/utils/color";
+import { normalizeHex, rgbToHex } from "@/utils/color";
 
 export interface Swatch {
   value: string;
@@ -223,17 +223,13 @@ const currentHex = computed(() =>
   typeof props.modelValue === "string" ? normalizeHex(props.modelValue) : "",
 );
 
-const rgbToHex = (rgb: string): string => {
+/** A computed `rgb(r, g, b)` as `#RRGGBB`; "" for transparent or unparseable. */
+const cssRgbToHex = (rgb: string): string => {
   const match = /rgba?\(\s*(\d+)[\s,]+(\d+)[\s,]+(\d+)(?:[\s,/]+([\d.]+))?/.exec(
     rgb,
   );
-  if (!match) return "";
-  if (match[4] !== undefined && parseFloat(match[4]) === 0) return "";
-  return normalizeHex(
-    [match[1], match[2], match[3]]
-      .map((n) => Number(n).toString(16).padStart(2, "0"))
-      .join(""),
-  );
+  if (!match || (match[4] !== undefined && parseFloat(match[4]) === 0)) return "";
+  return rgbToHex({ r: +match[1], g: +match[2], b: +match[3] });
 };
 
 /**
@@ -254,7 +250,7 @@ const resolvedHex = (): string => {
   host.appendChild(probe);
   const rgb = getComputedStyle(probe).color;
   probe.remove();
-  return probe.style.color ? rgbToHex(rgb) : "";
+  return probe.style.color ? cssRgbToHex(rgb) : "";
 };
 
 const hexDraft = ref("");
@@ -285,12 +281,8 @@ const isCustomCurrent = computed(
     !savedColors.value.includes(currentHex.value),
 );
 
-// A finished hex previews itself; while typing, the applied colour stays shown.
-const previewColor = computed(() => {
-  if (hexDraft.value.length === 6) return `#${hexDraft.value}`;
-  const hex = resolvedHex();
-  return hex || "transparent";
-});
+// The applied colour (six typed digits apply live, so this follows the field).
+const previewColor = computed(() => resolvedHex() || "transparent");
 
 // --- Custom colours -------------------------------------------------------
 
@@ -349,11 +341,11 @@ const onEyeDropper = async () => {
 
 // --- Hex field --------------------------------------------------------------
 
-/** Strip a pasted `#` / `0x` and anything that isn't a hex digit. */
+/** Strip a pasted `0x` and anything that isn't a hex digit (`#` included). */
 const sanitizeHex = (raw: string): string =>
   raw
     .trim()
-    .replace(/^(#|0x)/i, "")
+    .replace(/^0x/i, "")
     .replace(/[^0-9a-f]/gi, "")
     .slice(0, 6)
     .toUpperCase();
@@ -391,12 +383,6 @@ onBeforeUnmount(savePendingCustom);
 </script>
 
 <style scoped>
-.pps {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
 /* --- Swatches view --- */
 
 .pps__bar {

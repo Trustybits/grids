@@ -62,7 +62,6 @@
         spellcheck="false"
         autocomplete="off"
         @input="onHexInput"
-        @blur="onHexBlur"
         @keydown.enter.stop="onHexSubmit"
       />
 
@@ -318,25 +317,15 @@ export default defineComponent({
       }
     };
 
-    // Reflect the active target's current color in the hex field so it always
-    // mirrors what the swatches edit.
     const currentTargetHexDigits = () =>
       resolveColorToHexDigits(
         target.value === "overlay" ? props.currentOverlayColor : props.currentColor,
       );
 
+    // Reflect the active target's current color in the hex field so it always
+    // mirrors what the swatches edit.
     const syncHexToTarget = () => {
       hexInput.value = currentTargetHexDigits();
-    };
-
-    // Leaving the field applies 3-digit shorthand; anything else unfinished
-    // snaps back to the applied colour (the props watch then shows the new one).
-    const onHexBlur = () => {
-      const digits = hexInput.value;
-      if (digits.length === 3) {
-        handleColorChange(`#${digits.replace(/./g, "$&$&")}`);
-      }
-      syncHexToTarget();
     };
 
     const setTarget = (next: "fill" | "overlay") => {
@@ -472,7 +461,6 @@ export default defineComponent({
       onColorClick,
       onHexSubmit,
       onHexInput,
-      onHexBlur,
       generateColorTooltip,
       panelRef,
       eyeDropperSupported,

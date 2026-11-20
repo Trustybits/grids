@@ -53,12 +53,16 @@
         #
       </div>
       <input
-        v-model="hexInput"
+        :value="hexInput"
         ref="hexInputRef"
         class="hex-panel-input"
         type="text"
         placeholder="FFFFFF"
         maxlength="6"
+        spellcheck="false"
+        autocomplete="off"
+        @input="onHexInput"
+        @blur="onHexBlur"
         @keydown.enter.stop="onHexSubmit"
       />
 
@@ -276,6 +280,27 @@ export default defineComponent({
       handleColorChange(hex);
     };
 
+    // Only hex digits get into the field (a pasted `#` / `0x` is dropped), and
+    // six of them are a whole colour, so they apply live without Enter.
+    const onHexInput = (event: Event) => {
+      const input = event.target as HTMLInputElement;
+      const clean = input.value
+        .trim()
+        .replace(/^(#|0x)/i, "")
+        .replace(/[^0-9a-f]/gi, "")
+        .slice(0, 6)
+        .toUpperCase();
+      if (input.value !== clean) {
+        const caret = Math.min(input.selectionStart ?? clean.length, clean.length);
+        input.value = clean;
+        input.setSelectionRange(caret, caret);
+      }
+      hexInput.value = clean;
+      if (clean.length === 6 && clean !== currentTargetHexDigits()) {
+        handleColorChange(`#${clean}`);
+      }
+    };
+
     const handleColorChange = (color: string): void => {
       if (props.onColorChange) {
         props.onColorChange(color);
@@ -295,10 +320,23 @@ export default defineComponent({
 
     // Reflect the active target's current color in the hex field so it always
     // mirrors what the swatches edit.
+    const currentTargetHexDigits = () =>
+      resolveColorToHexDigits(
+        target.value === "overlay" ? props.currentOverlayColor : props.currentColor,
+      );
+
     const syncHexToTarget = () => {
-      const source =
-        target.value === "overlay" ? props.currentOverlayColor : props.currentColor;
-      hexInput.value = resolveColorToHexDigits(source);
+      hexInput.value = currentTargetHexDigits();
+    };
+
+    // Leaving the field applies 3-digit shorthand; anything else unfinished
+    // snaps back to the applied colour (the props watch then shows the new one).
+    const onHexBlur = () => {
+      const digits = hexInput.value;
+      if (digits.length === 3) {
+        handleColorChange(`#${digits.replace(/./g, "$&$&")}`);
+      }
+      syncHexToTarget();
     };
 
     const setTarget = (next: "fill" | "overlay") => {
@@ -433,6 +471,8 @@ export default defineComponent({
       setTarget,
       onColorClick,
       onHexSubmit,
+      onHexInput,
+      onHexBlur,
       generateColorTooltip,
       panelRef,
       eyeDropperSupported,

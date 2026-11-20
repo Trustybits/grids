@@ -17,7 +17,7 @@
       :label="mode === 'overlay' ? 'Overlay color' : 'Fill color'"
       :swatches="FILL_SWATCHES"
       :model-value="current"
-      :lead="{ value: NO_FILL_COLOR, label: 'No fill' }"
+      :lead="{ value: NO_FILL_COLOR, label: 'No fill', icon: 'no-fill' }"
       @pick="pick"
     />
   </div>

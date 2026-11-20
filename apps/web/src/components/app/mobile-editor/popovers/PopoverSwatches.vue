@@ -25,7 +25,14 @@
 <template>
   <div ref="rootRef" class="pps">
     <div v-if="!customOpen" class="pps__bar">
-      <div ref="rowRef" class="pps__row" role="listbox" :aria-label="label">
+      <div
+        ref="rowRef"
+        class="pps__row"
+        :class="{ 'fade-start': fadeStart, 'fade-end': fadeEnd }"
+        role="listbox"
+        :aria-label="label"
+        @scroll.passive="updateFades"
+      >
         <button
           v-if="lead"
           type="button"
@@ -166,6 +173,18 @@ const rootRef = ref<HTMLElement | null>(null);
 const rowRef = ref<HTMLElement | null>(null);
 const hexInputRef = ref<HTMLInputElement | null>(null);
 
+// Each end of the row fades out only while there's more to scroll that way.
+const fadeStart = ref(false);
+const fadeEnd = ref(false);
+
+const updateFades = () => {
+  const row = rowRef.value;
+  if (!row) return;
+  const max = row.scrollWidth - row.clientWidth;
+  fadeStart.value = row.scrollLeft > 1;
+  fadeEnd.value = row.scrollLeft < max - 1;
+};
+
 /**
  * Scroll the row (only the row — never the page) so the applied swatch is in
  * view, e.g. Pink or a saved colour that sits past the phone's width.
@@ -173,7 +192,10 @@ const hexInputRef = ref<HTMLInputElement | null>(null);
 const revealCurrentSwatch = () => {
   const row = rowRef.value;
   const current = row?.querySelector<HTMLElement>(".is-current");
-  if (!row || !current) return;
+  if (!row || !current) {
+    updateFades();
+    return;
+  }
   const left = current.offsetLeft - row.offsetLeft;
   const right = left + current.offsetWidth;
   if (left < row.scrollLeft) {
@@ -181,6 +203,7 @@ const revealCurrentSwatch = () => {
   } else if (right > row.scrollLeft + row.clientWidth) {
     row.scrollLeft = right - row.clientWidth + 8;
   }
+  updateFades();
 };
 
 const {
@@ -188,6 +211,12 @@ const {
   load: loadSavedColors,
   addColor: saveColor,
 } = useSavedColors();
+
+// Saved colours load in after mount and widen the row.
+watch(
+  () => savedColors.value.length,
+  () => void nextTick(updateFades),
+);
 
 /** The current colour when it is a literal hex (a custom pick), else "". */
 const currentHex = computed(() =>
@@ -386,6 +415,32 @@ onBeforeUnmount(savePendingCustom);
   padding: 4px;
   overflow-x: auto;
   scrollbar-width: none;
+  /* Soft edges hint that the row scrolls sideways (as the tool bar does);
+     each side fades only while there's more to scroll that way. */
+  --pps-fade-start: 0px;
+  --pps-fade-end: 0px;
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 var(--pps-fade-start),
+    #000 calc(100% - var(--pps-fade-end)),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 var(--pps-fade-start),
+    #000 calc(100% - var(--pps-fade-end)),
+    transparent 100%
+  );
+}
+
+.pps__row.fade-start {
+  --pps-fade-start: 20px;
+}
+
+.pps__row.fade-end {
+  --pps-fade-end: 28px;
 }
 
 .pps__row::-webkit-scrollbar {

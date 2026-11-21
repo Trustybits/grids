@@ -54,6 +54,16 @@ vi.mock("@/composables/useTileActions", () => ({
   }),
 }));
 
+// The colour popovers read the signed-in user's saved colours; there's no
+// auth/user service in this test, so give them an empty list.
+vi.mock("@/composables/useSavedColors", () => ({
+  useSavedColors: () => ({
+    savedColors: ref<string[]>([]),
+    load: vi.fn(async () => {}),
+    addColor: vi.fn(async () => {}),
+  }),
+}));
+
 vi.mock("@/composables/useGridEngineBridge", () => ({
   getGridEngineBridge: () => ({
     removeTiles: h.removeTiles,

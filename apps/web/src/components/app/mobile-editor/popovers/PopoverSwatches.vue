@@ -1,77 +1,154 @@
 <!--
   PopoverSwatches.vue
 
-  The colour controls shared by the text Color and tile Fill popovers: the same
-  saturation/brightness pad and hue slider as Grid settings' colour page, then
-  an optional leading choice (Auto / No fill), the theme swatches, and a hex
-  field. Theme swatches are stored as `var(--token)` so they follow the active
-  theme, the same values the desktop pickers write. A picked colour is a hex,
-  and every step of a drag writes it: the popover visit is one undo step.
+  The colour controls shared by the text Color and tile Fill popovers, in two
+  views:
 
-  No eyedropper: the EyeDropper API only exists in desktop Chromium.
+  - Swatches: one row — an optional leading choice (No fill / Auto), the theme
+    swatches, the user's saved custom colours — with the spectrum "Custom"
+    button pinned at the end so it never scrolls out of reach.
+  - Custom: the row gives way to a hex row (back to swatches, colour dot + hex
+    field, eyedropper), the saturation/brightness pad and the hue slider.
+
+  Theme swatches are stored as `var(--token)` so they follow the active theme,
+  the same values the desktop pickers write. A custom colour still applied when
+  the user goes back to swatches (or closes the popover) is saved to their
+  colours, so it comes back as a swatch in every picker.
+
+  The hex field always shows the applied colour (theme tokens resolved to their
+  hex), only accepts hex digits, and applies as soon as six are typed. Every
+  step of a drag writes the colour: the popover visit is one undo step.
+
+  The eyedropper only shows where the EyeDropper API exists (desktop Chromium,
+  i.e. a narrow desktop window running the phone editor).
 -->
 <template>
-  <div class="pps">
-    <MobileColorPicker
-      v-model="pickerHex"
-      @preview="$emit('pick', $event)"
-      @commit="$emit('pick', $event)"
-    />
-
-    <div class="pps__row" role="listbox" :aria-label="label">
-      <button
-        v-if="lead"
-        type="button"
-        class="pps__lead"
-        role="option"
-        :class="{ 'is-current': modelValue === lead.value }"
-        :aria-selected="modelValue === lead.value"
-        @click="$emit('pick', lead.value)"
+  <div ref="rootRef" class="pps">
+    <div v-if="!customOpen" class="pps__bar">
+      <div
+        ref="rowRef"
+        class="pps__row"
+        :class="{ 'fade-start': fadeStart, 'fade-end': fadeEnd }"
+        role="listbox"
+        :aria-label="label"
+        @scroll.passive="updateFades"
       >
-        {{ lead.label }}
-      </button>
+        <button
+          v-if="lead"
+          type="button"
+          class="pps__swatch pps__lead"
+          role="option"
+          :class="{
+            'is-current': modelValue === lead.value,
+            'pps__lead--icon': lead.icon === 'no-fill',
+          }"
+          :aria-selected="modelValue === lead.value"
+          :aria-label="lead.label"
+          @click="$emit('pick', lead.value)"
+        >
+          <NoFillIcon v-if="lead.icon === 'no-fill'" :size="24" />
+          <template v-else>{{ lead.label }}</template>
+        </button>
+        <!-- Recent custom colours, newest first, ahead of the presets so
+             they're in view without scrolling. -->
+        <button
+          v-for="color in savedColors"
+          :key="`saved-${color}`"
+          type="button"
+          class="pps__swatch"
+          role="option"
+          :class="{ 'is-current': currentHex === color }"
+          :aria-selected="currentHex === color"
+          :aria-label="`Saved color ${color}`"
+          :style="{ background: color }"
+          @click="$emit('pick', color)"
+        />
+        <button
+          v-for="swatch in swatches"
+          :key="swatch.value"
+          type="button"
+          class="pps__swatch"
+          role="option"
+          :class="{ 'is-current': modelValue === swatch.value }"
+          :aria-selected="modelValue === swatch.value"
+          :aria-label="swatch.label"
+          :style="{ background: swatch.value }"
+          @click="$emit('pick', swatch.value)"
+        />
+      </div>
       <button
-        v-for="swatch in swatches"
-        :key="swatch.value"
         type="button"
-        class="pps__swatch"
-        role="option"
-        :class="{ 'is-current': modelValue === swatch.value }"
-        :aria-selected="modelValue === swatch.value"
-        :aria-label="swatch.label"
-        :style="{ background: swatch.value }"
-        @click="$emit('pick', swatch.value)"
+        class="pps__swatch pps__custom"
+        :class="{ 'is-current': isCustomCurrent }"
+        aria-label="Custom color"
+        data-testid="pps-custom"
+        @click="openCustom"
       />
     </div>
 
-    <label class="pps__hex">
-      <span class="pps__hash" aria-hidden="true">#</span>
-      <input
-        v-model="hexDraft"
-        type="text"
-        inputmode="text"
-        autocapitalize="characters"
-        autocomplete="off"
-        spellcheck="false"
-        maxlength="7"
-        placeholder="FFFFFF"
-        :aria-label="`${label} hex value`"
-        @keydown.enter.prevent="applyHex"
-        @blur="applyHex"
+    <div v-else class="pps__card" role="group" :aria-label="`Custom ${label}`">
+      <div class="pps__hex-row">
+        <button
+          type="button"
+          class="pps__icon-btn"
+          aria-label="Back to swatches"
+          data-testid="pps-back"
+          @click="closeCustom"
+        >
+          <ChevronLeftIcon :size="20" />
+        </button>
+        <label class="pps__hex">
+          <span
+            class="pps__dot"
+            :style="{ background: previewColor }"
+            aria-hidden="true"
+          />
+          <span class="pps__hash" aria-hidden="true">#</span>
+          <input
+            ref="hexInputRef"
+            :value="hexDraft"
+            type="text"
+            inputmode="text"
+            autocapitalize="characters"
+            autocomplete="off"
+            spellcheck="false"
+            maxlength="6"
+            placeholder="FFFFFF"
+            :aria-label="`${label} hex value`"
+            data-testid="pps-hex"
+            @input="onHexInput"
+            @keydown.enter.prevent="($event.target as HTMLInputElement).blur()"
+            @blur="onHexBlur"
+          />
+        </label>
+        <button
+          v-if="eyeDropperSupported"
+          type="button"
+          class="pps__icon-btn"
+          aria-label="Pick a color from the page"
+          @click="onEyeDropper"
+        >
+          <EyeDropperIcon :size="20" />
+        </button>
+      </div>
+
+      <MobileColorPicker
+        v-model="pickerHex"
+        @preview="pickCustom"
+        @commit="pickCustom"
       />
-      <span
-        class="pps__preview"
-        :style="{ background: previewColor }"
-        aria-hidden="true"
-      />
-    </label>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import MobileColorPicker from "@/components/app/MobileColorPicker.vue";
-import { normalizeHex } from "@/utils/color";
+import NoFillIcon from "@/components/icons/NoFillIcon.vue";
+import EyeDropperIcon from "@/components/icons/EyeDropperIcon.vue";
+import ChevronLeftIcon from "@/components/icons/ChevronLeftIcon.vue";
+import { useSavedColors } from "@/composables/useSavedColors";
+import { normalizeHex, rgbToHex } from "@/utils/color";
 
 export interface Swatch {
   value: string;
@@ -84,77 +161,239 @@ const props = withDefaults(
     /** The current colour; "mixed" or anything unknown highlights none. */
     modelValue: unknown;
     label: string;
-    lead?: { value: string; label: string } | null;
+    /** A leading non-colour choice; `icon: "no-fill"` draws it as an icon. */
+    lead?: { value: string; label: string; icon?: "no-fill" } | null;
   }>(),
   { lead: null },
 );
 
 const emit = defineEmits<{ pick: [value: string] }>();
 
-const currentHex = () =>
-  typeof props.modelValue === "string" ? normalizeHex(props.modelValue) : "";
+const rootRef = ref<HTMLElement | null>(null);
+const rowRef = ref<HTMLElement | null>(null);
+const hexInputRef = ref<HTMLInputElement | null>(null);
 
-/** The current colour as a hex, reading a `var(--token)` from the theme. */
-const resolvedHex = () => {
-  const value = props.modelValue;
-  if (typeof value !== "string") return "";
-  const token = /^var\((--[\w-]+)\)$/.exec(value)?.[1];
-  return normalizeHex(
-    token ? getComputedStyle(document.body).getPropertyValue(token) : value,
-  );
+// Each end of the row fades out only while there's more to scroll that way.
+const fadeStart = ref(false);
+const fadeEnd = ref(false);
+
+const updateFades = () => {
+  const row = rowRef.value;
+  if (!row) return;
+  const max = row.scrollWidth - row.clientWidth;
+  fadeStart.value = row.scrollLeft > 1;
+  fadeEnd.value = row.scrollLeft < max - 1;
 };
 
-const hexDraft = ref(currentHex().slice(1));
+/**
+ * Scroll the row (only the row — never the page) so the applied swatch is in
+ * view, e.g. Pink or a saved colour that sits past the phone's width.
+ */
+const revealCurrentSwatch = () => {
+  const row = rowRef.value;
+  const current = row?.querySelector<HTMLElement>(".is-current");
+  if (!row || !current) {
+    updateFades();
+    return;
+  }
+  const left = current.offsetLeft - row.offsetLeft;
+  const right = left + current.offsetWidth;
+  if (left < row.scrollLeft) {
+    row.scrollLeft = left - 8;
+  } else if (right > row.scrollLeft + row.clientWidth) {
+    row.scrollLeft = right - row.clientWidth + 8;
+  }
+  updateFades();
+};
+
+const {
+  savedColors,
+  load: loadSavedColors,
+  addColor: saveColor,
+} = useSavedColors();
+
+// Saved colours load in after mount and widen the row.
+watch(
+  () => savedColors.value.length,
+  () => void nextTick(updateFades),
+);
+
+/** The current colour when it is a literal hex (a custom pick), else "". */
+const currentHex = computed(() =>
+  typeof props.modelValue === "string" ? normalizeHex(props.modelValue) : "",
+);
+
+/** A computed `rgb(r, g, b)` as `#RRGGBB`; "" for transparent or unparseable. */
+const cssRgbToHex = (rgb: string): string => {
+  const match = /rgba?\(\s*(\d+)[\s,]+(\d+)[\s,]+(\d+)(?:[\s,/]+([\d.]+))?/.exec(
+    rgb,
+  );
+  if (!match || (match[4] !== undefined && parseFloat(match[4]) === 0)) return "";
+  return rgbToHex({ r: +match[1], g: +match[2], b: +match[3] });
+};
+
+/**
+ * The current colour as a hex, with a `var(--token)` swatch resolved against
+ * the live theme. The lead choice (Auto / No fill) and "mixed" have no single
+ * colour, so they resolve to "".
+ */
+const resolvedHex = (): string => {
+  const value = props.modelValue;
+  if (typeof value !== "string" || value === props.lead?.value) return "";
+  if (currentHex.value) return currentHex.value;
+  if (!value.startsWith("var(")) return "";
+  // Let the browser resolve the token (and anything it references) to rgb().
+  const host = rootRef.value ?? document.body;
+  const probe = document.createElement("span");
+  probe.style.display = "none";
+  probe.style.color = value;
+  host.appendChild(probe);
+  const rgb = getComputedStyle(probe).color;
+  probe.remove();
+  return probe.style.color ? cssRgbToHex(rgb) : "";
+};
+
+const hexDraft = ref("");
 
 // The pad and hue start from the current colour, swatches included; "No fill"
 // and "Auto" have no colour to show, so they leave it where it was.
-const pickerHex = ref(resolvedHex() || "#FFFFFF");
+const pickerHex = ref("#FFFFFF");
 
-// Show a picked custom hex; swatch tokens leave the field for typing.
-watch(
-  () => props.modelValue,
-  () => {
-    const hex = currentHex();
-    if (hex) hexDraft.value = hex.slice(1);
-    pickerHex.value = resolvedHex() || pickerHex.value;
-  },
+const syncFromValue = () => {
+  const hex = resolvedHex();
+  // Never rewrite the field under the user's fingers.
+  if (document.activeElement !== hexInputRef.value) {
+    hexDraft.value = hex.slice(1);
+  }
+  if (hex) pickerHex.value = hex;
+};
+
+watch(() => props.modelValue, syncFromValue);
+
+const isPreset = (value: string) =>
+  props.swatches.some((swatch) => swatch.value === value);
+
+/** A custom hex is applied that isn't one of the saved swatches yet. */
+const isCustomCurrent = computed(
+  () =>
+    !!currentHex.value &&
+    !isPreset(props.modelValue as string) &&
+    !savedColors.value.includes(currentHex.value),
 );
 
-const previewColor = computed(() => {
-  const hex = normalizeHex(hexDraft.value);
-  if (hex) return hex;
-  return typeof props.modelValue === "string" ? props.modelValue : "transparent";
+// The applied colour (six typed digits apply live, so this follows the field).
+const previewColor = computed(() => resolvedHex() || "transparent");
+
+// --- Custom colours -------------------------------------------------------
+
+const customOpen = ref(false);
+
+/** The last custom hex this visit applied, saved once the user settles on it. */
+const pendingCustom = ref("");
+
+const pickCustom = (hex: string) => {
+  const normalized = normalizeHex(hex);
+  if (!normalized) return;
+  pendingCustom.value = normalized;
+  if (normalized !== currentHex.value) emit("pick", normalized);
+};
+
+/** Save the custom colour if it's still the one applied. */
+const savePendingCustom = () => {
+  const hex = pendingCustom.value;
+  pendingCustom.value = "";
+  if (!hex || hex !== currentHex.value) return;
+  if (savedColors.value.includes(hex)) return;
+  void saveColor(hex);
+};
+
+const openCustom = () => {
+  syncFromValue();
+  customOpen.value = true;
+};
+
+const closeCustom = () => {
+  savePendingCustom();
+  customOpen.value = false;
+  void nextTick(revealCurrentSwatch);
+};
+
+// --- Eyedropper -------------------------------------------------------------
+
+interface EyeDropperConstructor {
+  new (): { open: () => Promise<{ sRGBHex: string }> };
+}
+
+const EyeDropperCtor = (
+  window as unknown as { EyeDropper?: EyeDropperConstructor }
+).EyeDropper;
+const eyeDropperSupported = !!EyeDropperCtor;
+
+const onEyeDropper = async () => {
+  if (!EyeDropperCtor) return;
+  try {
+    const { sRGBHex } = await new EyeDropperCtor().open();
+    pickCustom(sRGBHex);
+  } catch {
+    // Dismissed (Escape) — nothing to do.
+  }
+};
+
+// --- Hex field --------------------------------------------------------------
+
+/** Strip a pasted `0x` and anything that isn't a hex digit (`#` included). */
+const sanitizeHex = (raw: string): string =>
+  raw
+    .trim()
+    .replace(/^0x/i, "")
+    .replace(/[^0-9a-f]/gi, "")
+    .slice(0, 6)
+    .toUpperCase();
+
+const onHexInput = (event: Event) => {
+  const input = event.target as HTMLInputElement;
+  const clean = sanitizeHex(input.value);
+  // Rewrite the field in place so a rejected character never shows.
+  if (input.value !== clean) {
+    const caret = Math.min(input.selectionStart ?? clean.length, clean.length);
+    input.value = clean;
+    input.setSelectionRange(caret, caret);
+  }
+  hexDraft.value = clean;
+  // Six digits is a whole colour: apply it live.
+  if (clean.length === 6) pickCustom(clean);
+};
+
+const onHexBlur = () => {
+  // Three digits is shorthand — expand and apply it on leaving the field.
+  if (hexDraft.value.length === 3) pickCustom(hexDraft.value);
+  // Anything incomplete snaps back to the applied colour.
+  hexDraft.value = resolvedHex().slice(1);
+};
+
+onMounted(async () => {
+  syncFromValue();
+  await loadSavedColors();
+  await nextTick();
+  revealCurrentSwatch();
 });
 
-const applyHex = () => {
-  const hex = normalizeHex(hexDraft.value);
-  if (!hex || hex === currentHex()) return;
-  emit("pick", hex);
-};
+// Closing the popover counts as settling on the colour.
+onBeforeUnmount(savePendingCustom);
 </script>
 
 <style scoped>
-.pps {
+/* --- Swatches view --- */
+
+.pps__bar {
   display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-/* MobileColorPicker brings its own sheet chrome; the card is the surface here. */
-.pps :deep(.mcp-panel) {
-  padding: 0;
-  background: transparent;
-  border: none;
-  border-radius: 0;
-  box-shadow: none;
-}
-
-/* Shorter than the Grid settings page: the tile stays in view above the card. */
-.pps :deep(.mcp-pad) {
-  height: 120px;
+  align-items: center;
+  gap: 8px;
 }
 
 .pps__row {
+  flex: 1 1 auto;
+  min-width: 0;
   display: flex;
   gap: 8px;
   /* Room for the current swatch's ring, which the scrolling would clip. */
@@ -162,17 +401,42 @@ const applyHex = () => {
   padding: 4px;
   overflow-x: auto;
   scrollbar-width: none;
+  /* Soft edges hint that the row scrolls sideways (as the tool bar does);
+     each side fades only while there's more to scroll that way. */
+  --pps-fade-start: 0px;
+  --pps-fade-end: 0px;
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 var(--pps-fade-start),
+    #000 calc(100% - var(--pps-fade-end)),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 var(--pps-fade-start),
+    #000 calc(100% - var(--pps-fade-end)),
+    transparent 100%
+  );
+}
+
+.pps__row.fade-start {
+  --pps-fade-start: 20px;
+}
+
+.pps__row.fade-end {
+  --pps-fade-end: 28px;
 }
 
 .pps__row::-webkit-scrollbar {
   display: none;
 }
 
-.pps__swatch,
-.pps__lead {
+.pps__swatch {
   flex: 0 0 auto;
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   padding: 0;
   border: 1px solid var(--color-stroke);
   border-radius: 10px;
@@ -182,7 +446,9 @@ const applyHex = () => {
 }
 
 .pps__lead {
-  width: 52px;
+  width: auto;
+  min-width: 36px;
+  padding: 0 8px;
   background: var(--color-tool-selected-bg);
   color: var(--color-content-high);
   font-family: "Inter", sans-serif;
@@ -191,27 +457,103 @@ const applyHex = () => {
   line-height: 1.1;
 }
 
-.pps__swatch:active,
-.pps__lead:active {
+.pps__lead--icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  color: var(--color-text-primary);
+}
+
+/* The same spectrum the grid settings sheet uses for "pick a colour". */
+.pps__custom {
+  background: conic-gradient(
+    from 90deg,
+    var(--color-red),
+    var(--color-yellow),
+    var(--color-green),
+    var(--color-cyan),
+    var(--color-blue),
+    var(--color-purple),
+    var(--color-red)
+  );
+}
+
+.pps__swatch:active {
   transform: scale(0.92);
 }
 
-.pps__swatch.is-current,
-.pps__lead.is-current {
+.pps__swatch.is-current {
   box-shadow:
     0 0 0 2px var(--color-toolbar-background, #000),
     0 0 0 4px var(--color-tool-active);
 }
 
-.pps__hex {
+/* --- Custom view --- */
+
+.pps__card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* MobileColorPicker brings its own sheet chrome; the popover is the surface here. */
+.pps__card :deep(.mcp-panel) {
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* Shorter than the Grid settings page: the tile stays in view above the card. */
+.pps__card :deep(.mcp-pad) {
+  height: 120px;
+}
+
+.pps__hex-row {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  height: 44px;
+}
+
+.pps__icon-btn {
+  flex: 0 0 44px;
   display: flex;
   align-items: center;
-  gap: 6px;
-  height: 44px;
-  padding: 0 6px 0 12px;
+  justify-content: center;
+  padding: 0;
   border: 1px solid var(--color-stroke);
   border-radius: 12px;
   background: var(--color-tool-selected-bg);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.pps__icon-btn:active {
+  transform: scale(0.94);
+}
+
+.pps__hex {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  border: 1px solid var(--color-stroke);
+  border-radius: 12px;
+  background: var(--color-tool-selected-bg);
+}
+
+.pps__dot {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-stroke);
 }
 
 .pps__hash {
@@ -230,13 +572,5 @@ const applyHex = () => {
   font-size: 16px;
   text-transform: uppercase;
   outline: none;
-}
-
-.pps__preview {
-  width: 30px;
-  height: 30px;
-  flex: 0 0 auto;
-  border: 1px solid var(--color-stroke);
-  border-radius: 8px;
 }
 </style>
